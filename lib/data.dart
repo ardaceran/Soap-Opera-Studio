@@ -12,11 +12,34 @@ class Character {
 enum EpisodeStatus { published, voting, rendering, locked }
 
 class Episode {
-  const Episode(this.number, this.title, this.summary, this.status);
+  const Episode(this.number, this.title, this.summary, this.status,
+      {this.pollId});
+  final String? pollId; // bölümün sonundaki anket (varsa)
   final int number;
   final String title;
   final String summary;
   final EpisodeStatus status;
+}
+
+class PollOption {
+  const PollOption(this.id, this.label);
+  final String id;
+  final String label;
+}
+
+class PollInfo {
+  const PollInfo({
+    required this.id,
+    required this.seriesTitle,
+    required this.episodeNumber,
+    required this.closesAt,
+    required this.options,
+  });
+  final String id;
+  final String seriesTitle;
+  final int episodeNumber; // anketin açıldığı bölüm; oy sonraki bölüm için
+  final DateTime closesAt;
+  final List<PollOption> options;
 }
 
 class Series {

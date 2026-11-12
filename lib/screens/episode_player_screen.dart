@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data.dart';
+import '../repository.dart';
 import '../theme.dart';
 import 'vote_sheet.dart';
 
@@ -78,11 +79,24 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
 
   Future<void> _openVote() async {
     _c.stop();
-    await showVoteSheet(
-      context,
-      seriesTitle: widget.series.title,
-      nextEpisode: widget.episode.number + 1,
-    );
+    final pid = widget.episode.pollId;
+    if (pid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'Bu örnek bölümün gerçek bir anketi yok. Diziler sekmesindeki anket bandından oy verebilirsin.'),
+      ));
+    } else {
+      try {
+        final poll = await Repo.fetchPollById(pid);
+        if (!mounted) return;
+        await showVoteSheet(context, poll);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(errText(e))));
+        }
+      }
+    }
     if (mounted && !_paused && _c.value < 1) {
       _c.forward();
     }

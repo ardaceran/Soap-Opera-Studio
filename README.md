@@ -44,3 +44,7 @@ Gereken: Flutter 3.19 veya üstü (Dart >= 3.3).
 - Giriş: Supabase Auth
 - Üretim durumu: Realtime ile `jobs` tablosu
 - Maliyet: `cost_events` tablosu
+
+## Oylama ve örnek veri
+1. Supabase SQL Editor'da `supabase/003_seed_demo.sql` dosyasını çalıştır (önce uygulamadan hesap aç).
+2. Diziler sekmesinde "Oy ver" bandı çıkar; oylar `votes` tablosuna yazılır, sonuçlar 3 sn'de bir yenilenir.

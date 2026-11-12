@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../data.dart';
 import '../repository.dart';
+import '../theme.dart';
 import '../widgets.dart';
 import 'login_screen.dart';
 import 'series_detail_screen.dart';
+import 'vote_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,12 +16,45 @@ class HomeScreen extends StatefulWidget {
 
 class HomeScreenState extends State<HomeScreen> {
   late Future<List<Series>> _future = Repo.fetchSeries();
+  late Future<List<PollInfo>> _polls = Repo.fetchOpenPolls();
 
   /// Dışarıdan (ör. dizi oluşturulunca) listeyi yeniler.
   void reload() {
     setState(() {
       _future = Repo.fetchSeries();
+      _polls = Repo.fetchOpenPolls();
     });
+  }
+
+  Widget _pollBanner() {
+    return FutureBuilder<List<PollInfo>>(
+      future: _polls,
+      builder: (context, snap) {
+        final polls = snap.data ?? const <PollInfo>[];
+        if (polls.isEmpty) return const SizedBox.shrink();
+        return Column(
+          children: [
+            for (final p in polls)
+              Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: kGold.withAlpha(30),
+                child: ListTile(
+                  leading: const Icon(Icons.how_to_vote, color: kGold),
+                  title: Text(
+                    '${p.seriesTitle}: Bölüm ${p.episodeNumber + 1} için oylama açık',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text('Sonraki bölümü sen belirle'),
+                  trailing: FilledButton(
+                    onPressed: () => showVoteSheet(context, p),
+                    child: const Text('Oy ver'),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _signOut() async {
@@ -105,6 +140,7 @@ class HomeScreenState extends State<HomeScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              _pollBanner(),
               for (final s in list)
                 SeriesCard(
                   series: s,

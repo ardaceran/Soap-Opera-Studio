@@ -105,6 +105,29 @@ class Repo {
     }
   }
 
+  static Episode _episodeFrom(Map<String, dynamic> e) {
+    // Bölümün anketi: tekil nesne ya da liste olarak gelebilir.
+    Map<String, dynamic>? poll;
+    final raw = e['polls'];
+    if (raw is Map) {
+      poll = Map<String, dynamic>.from(raw);
+    } else if (raw is List && raw.isNotEmpty) {
+      poll = Map<String, dynamic>.from(raw.first as Map);
+    }
+    var status = _status((e['status'] ?? 'draft') as String);
+    if (status == EpisodeStatus.published && poll != null) {
+      final closes = DateTime.parse(poll['closes_at'] as String);
+      if (closes.isAfter(DateTime.now())) status = EpisodeStatus.voting;
+    }
+    return Episode(
+      e['number'] as int,
+      (e['title'] ?? 'Bölüm ${e['number']}') as String,
+      (e['summary'] ?? '') as String,
+      status,
+      pollId: poll?['id'] as String?,
+    );
+  }
+
   static Series _fromRow(Map<String, dynamic> r) {
     final genre = (r['genre'] ?? '') as String;
     final chars = ((r['characters'] ?? []) as List)
@@ -129,15 +152,7 @@ class Repo {
             _charColors[i % _charColors.length],
           ),
       ],
-      episodes: [
-        for (final e in eps)
-          Episode(
-            e['number'] as int,
-            (e['title'] ?? 'Bölüm ${e['number']}') as String,
-            (e['summary'] ?? '') as String,
-            _status((e['status'] ?? 'draft') as String),
-          ),
-      ],
+      episodes: [for (final e in eps) _episodeFrom(e)],
     );
   }
 
@@ -145,7 +160,7 @@ class Repo {
   static Future<List<Series>> fetchSeries() async {
     final rows = await _db
         .from('series')
-        .select('*, characters(*), episodes(*)')
+        .select('*, characters(*), episodes(*, polls(id, closes_at))')
         .order('created_at', ascending: false);
     return rows.map<Series>((r) => _fromRow(r)).toList();
   }
@@ -175,5 +190,82 @@ class Repo {
       for (var i = 0; i < names.length; i++)
         {'series_id': s['id'], 'name': names[i], 'role': roles[i]},
     ]);
+  }
+
+  // ----------------------------------------------------------------- polls
+
+  static const String _pollSelect =
+      'id, closes_at, poll_options(id, label), episodes(number, series(title))';
+
+  static PollInfo _pollFrom(Map<String, dynamic> r) {
+    final ep = Map<String, dynamic>.from(r['episodes'] as Map);
+    final sr = Map<String, dynamic>.from(ep['series'] as Map);
+    final opts = (r['poll_options'] as List)
+        .map((o) => PollOption(o['id'] as String, o['label'] as String))
+        .toList();
+    return PollInfo(
+      id: r['id'] as String,
+      seriesTitle: (sr['title'] ?? '') as String,
+      episodeNumber: ep['number'] as int,
+      closesAt: DateTime.parse(r['closes_at'] as String),
+      options: opts,
+    );
+  }
+
+  /// Şu an açık olan anketler.
+  static Future<List<PollInfo>> fetchOpenPolls() async {
+    final rows = await _db
+        .from('polls')
+        .select(_pollSelect)
+        .gt('closes_at', DateTime.now().toUtc().toIso8601String())
+        .order('closes_at');
+    return rows.map<PollInfo>((r) => _pollFrom(r)).toList();
+  }
+
+  static Future<PollInfo> fetchPollById(String id) async {
+    final r = await _db.from('polls').select(_pollSelect).eq('id', id).single();
+    return _pollFrom(r);
+  }
+
+  /// seçenek id -> oy sayısı
+  static Future<Map<String, int>> fetchPollResults(String pollId) async {
+    final rows = await _db
+        .from('poll_results')
+        .select('option_id, votes')
+        .eq('poll_id', pollId);
+    return {
+      for (final r in rows)
+        r['option_id'] as String: (r['votes'] as num).toInt(),
+    };
+  }
+
+  /// Kullanıcının bu ankette verdiği seçenek (yoksa null).
+  static Future<String?> myVote(String pollId) async {
+    final user = _db.auth.currentUser;
+    if (user == null) return null;
+    final r = await _db
+        .from('votes')
+        .select('option_id')
+        .eq('poll_id', pollId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+    return r?['option_id'] as String?;
+  }
+
+  static Future<void> castVote(String pollId, String optionId) async {
+    final user = _db.auth.currentUser;
+    if (user == null) throw Exception('Oy vermek için giriş yapmalısın.');
+    try {
+      await _db.from('votes').insert({
+        'poll_id': pollId,
+        'user_id': user.id,
+        'option_id': optionId,
+      });
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        throw Exception('Bu ankette zaten oy kullandın.');
+      }
+      rethrow;
+    }
   }
 }
