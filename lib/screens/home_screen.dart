@@ -17,7 +17,9 @@ class HomeScreenState extends State<HomeScreen> {
 
   /// Dışarıdan (ör. dizi oluşturulunca) listeyi yeniler.
   void reload() {
-    setState(() => _future = Repo.fetchSeries());
+    setState(() {
+      _future = Repo.fetchSeries();
+    });
   }
 
   Future<void> _signOut() async {
