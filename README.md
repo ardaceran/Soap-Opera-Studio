@@ -58,8 +58,6 @@ docs/                DartPad single-file demo (mock data, no backend)
 
 ## Setup
 
-### 1. Flutter app
-
 Requires Flutter 3.19+ (Dart 3.3+).
 
 ```bash
@@ -73,25 +71,6 @@ flutter run                                    # or: flutter run -d chrome
 
 Build an Android APK: run `flutter create . --platforms=android,ios` once, then `flutter build apk`.
 See `needed_files/README.md` for details.
-
-### 2. Supabase
-
-1. Create a project and run the SQL files in the SQL Editor, in order:
-   `supabase/schema.sql`, `supabase/002_delete_account.sql`.
-   An existing project created before these changes also needs `supabase/005_fixes.sql`
-   and `supabase/006_add_episode.sql`.
-2. Authentication > Providers > Email: turn "Confirm email" off during development.
-3. Put your project URL and **publishable** key in `lib/config.dart`.
-4. Optional sample data (for testing only): create an account in the app, then run
-   `supabase/003_seed_demo.sql` and `supabase/004_seed_scenes_costs.sql`
-   (the costs in 004 are placeholder numbers, not measured costs).
-
-### 3. Secrets
-
-- The publishable key in `lib/config.dart` is safe to ship; security comes from RLS.
-- Copy `.env.example` to `.env` for the worker. **Never commit `.env`**, and never put the
-  `service_role` / secret key, the database password or any API key in the app or the repo.
-- Set a spending limit on every paid API (Anthropic, fal.ai, ElevenLabs).
 
 ## Roadmap (Demo Day)
 
