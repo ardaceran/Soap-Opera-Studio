@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import '../repository.dart';
 import '../theme.dart';
 import 'generation_status_screen.dart';
 
 class CreateSeriesScreen extends StatefulWidget {
-  const CreateSeriesScreen({super.key});
+  const CreateSeriesScreen({super.key, this.onCreated});
+
+  /// Dizi veritabanına kaydedilince çağrılır (ana sayfa listesini yenilemek için).
+  final VoidCallback? onCreated;
 
   @override
   State<CreateSeriesScreen> createState() => _CreateSeriesScreenState();
@@ -27,6 +31,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
     TextEditingController(),
   ];
   final List<String> _charRoles = ['Kahraman', 'Gizemli'];
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -52,21 +57,50 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
     });
   }
 
-  void _submit() {
-    final named = _names.where((c) => c.text.trim().isNotEmpty).length;
-    if (_title.text.trim().isEmpty || named < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Dizi adı ve en az 2 karakter adı gerekli.'),
-        ),
-      );
+  void _snack(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _submit() async {
+    final names = <String>[];
+    final roles = <String>[];
+    for (var i = 0; i < _names.length; i++) {
+      final n = _names[i].text.trim();
+      if (n.isNotEmpty) {
+        names.add(n);
+        roles.add(_charRoles[i]);
+      }
+    }
+    final title = _title.text.trim();
+    if (title.isEmpty || names.length < 2) {
+      _snack('Dizi adı ve en az 2 karakter adı gerekli.');
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => GenerationStatusScreen(title: _title.text.trim()),
-      ),
-    );
+    if (!Repo.signedIn) {
+      _snack('Dizi oluşturmak için giriş yapmalısın.');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await Repo.createSeries(
+        title: title,
+        genre: _genre,
+        setting: _setting,
+        names: names,
+        roles: roles,
+      );
+      widget.onCreated?.call();
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => GenerationStatusScreen(title: title),
+        ),
+      );
+    } catch (e) {
+      if (mounted) _snack(errText(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Widget _label(String text) => Padding(
@@ -196,10 +230,16 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
           ),
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: _submit,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('Sezon planını oluştur'),
+            onPressed: _saving ? null : _submit,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Text('Diziyi kaydet ve sezon planını başlat'),
             ),
           ),
         ],

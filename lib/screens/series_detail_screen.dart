@@ -115,6 +115,16 @@ class SeriesDetailScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (series.episodes.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Text(
+                  'Henüz bölüm yok. Üretim hattı bağlanınca sezon planı ve bölümler burada görünecek.',
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ),
+            ),
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, i) {

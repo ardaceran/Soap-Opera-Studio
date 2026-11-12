@@ -12,17 +12,19 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
-
-  final List<Widget> _pages = const [
-    HomeScreen(),
-    CreateSeriesScreen(),
-    CostPanelScreen(),
-  ];
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          HomeScreen(key: _homeKey),
+          CreateSeriesScreen(onCreated: () => _homeKey.currentState?.reload()),
+          const CostPanelScreen(),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -30,7 +32,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Dizilerim',
+            label: 'Diziler',
           ),
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),

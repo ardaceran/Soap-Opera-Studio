@@ -1,95 +1,120 @@
 import 'package:flutter/material.dart';
 import '../data.dart';
-import '../theme.dart';
+import '../repository.dart';
 import '../widgets.dart';
+import 'login_screen.dart';
 import 'series_detail_screen.dart';
-import 'vote_sheet.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Series? votingSeries;
-    Episode? votingEpisode;
-    for (final s in kSeries) {
-      for (final e in s.episodes) {
-        if (e.status == EpisodeStatus.voting && votingSeries == null) {
-          votingSeries = s;
-          votingEpisode = e;
-        }
-      }
-    }
-    final vs = votingSeries;
-    final ve = votingEpisode;
+  State<HomeScreen> createState() => HomeScreenState();
+}
 
+class HomeScreenState extends State<HomeScreen> {
+  late Future<List<Series>> _future = Repo.fetchSeries();
+
+  /// Dışarıdan (ör. dizi oluşturulunca) listeyi yeniler.
+  void reload() {
+    setState(() => _future = Repo.fetchSeries());
+  }
+
+  Future<void> _signOut() async {
+    await Repo.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  void _goLogin() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dizilerim',
+        title: const Text('Diziler',
             style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () {},
+            tooltip: 'Yenile',
+            icon: const Icon(Icons.refresh),
+            onPressed: reload,
           ),
+          if (Repo.signedIn)
+            IconButton(
+              tooltip: 'Çıkış yap',
+              icon: const Icon(Icons.logout),
+              onPressed: _signOut,
+            )
+          else
+            IconButton(
+              tooltip: 'Giriş yap',
+              icon: const Icon(Icons.login),
+              onPressed: _goLogin,
+            ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (vs != null && ve != null)
-            Card(
-              color: kCard,
-              margin: const EdgeInsets.only(bottom: 20),
+      body: FutureBuilder<List<Series>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.how_to_vote, color: kGold),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Oylama açık',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(
-                            '${vs.title} · Bölüm ${ve.number} sonrası',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
+                    const Icon(Icons.cloud_off, size: 40),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Diziler yüklenemedi:\n${errText(snap.error!)}',
+                      textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: () => showVoteSheet(
-                        context,
-                        seriesTitle: vs.title,
-                        nextEpisode: ve.number + 1,
-                      ),
-                      child: const Text('Oy ver'),
-                    ),
+                        onPressed: reload, child: const Text('Tekrar dene')),
                   ],
                 ),
               ),
-            ),
-          Text(
-            'Dizilerin',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          for (final s in kSeries)
-            SeriesCard(
-              series: s,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => SeriesDetailScreen(series: s),
+            );
+          }
+          final list = snap.data ?? const <Series>[];
+          if (list.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Henüz dizi yok.\nOluştur sekmesinden ilk dizini yarat.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70),
                 ),
               ),
-            ),
-        ],
+            );
+          }
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              for (final s in list)
+                SeriesCard(
+                  series: s,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SeriesDetailScreen(series: s),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

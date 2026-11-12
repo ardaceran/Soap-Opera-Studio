@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../repository.dart';
 import '../theme.dart';
 import 'home_shell.dart';
 
@@ -12,8 +13,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
+  bool _signup = false;
   bool _consent = false;
   bool _hide = true;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -22,14 +25,49 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void _snack(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   void _enter() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => const HomeShell()),
     );
   }
 
+  Future<void> _submit() async {
+    final email = _email.text.trim();
+    final pass = _pass.text;
+    if (email.isEmpty || pass.length < 6) {
+      _snack('E-posta gir ve en az 6 karakterli bir şifre yaz.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      if (_signup) {
+        final hasSession = await Repo.signUp(email, pass);
+        if (!hasSession) {
+          if (mounted) {
+            setState(() => _signup = false);
+            _snack('Kayıt oluştu. E-postandaki onay linkine tıkla, sonra giriş yap.');
+          }
+          return;
+        }
+        await Repo.saveConsent();
+      } else {
+        await Repo.signIn(email, pass);
+      }
+      if (mounted) _enter();
+    } catch (e) {
+      if (mounted) _snack(errText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canSubmit = !_busy && (!_signup || _consent);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -69,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _pass,
                   obscureText: _hide,
                   decoration: InputDecoration(
-                    labelText: 'Şifre',
+                    labelText: 'Şifre (en az 6 karakter)',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
@@ -78,27 +116,39 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  value: _consent,
-                  onChanged: (v) => setState(() => _consent = v ?? false),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Gizlilik bildirimini okudum, verilerimin işlenmesini onaylıyorum (KVKK).',
-                    style: TextStyle(fontSize: 13),
+                if (_signup)
+                  CheckboxListTile(
+                    value: _consent,
+                    onChanged: (v) => setState(() => _consent = v ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Gizlilik bildirimini okudum, verilerimin işlenmesini onaylıyorum (KVKK).',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: _consent ? _enter : null,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Giriş yap'),
+                  onPressed: canSubmit ? _submit : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: _busy
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          )
+                        : Text(_signup ? 'Kayıt ol' : 'Giriş yap'),
                   ),
                 ),
                 TextButton(
-                  onPressed: _enter,
+                  onPressed: _busy ? null : () => setState(() => _signup = !_signup),
+                  child: Text(_signup
+                      ? 'Zaten hesabın var mı? Giriş yap'
+                      : 'Hesabın yok mu? Kayıt ol'),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : _enter,
                   child: const Text('Misafir olarak izle'),
                 ),
                 const SizedBox(height: 8),

@@ -1,7 +1,7 @@
 # Soap Opera Studio — Flutter arayüz prototipi
 
-Mock veriyle çalışan mobil arayüz. Henüz backend yok; amaç haftalık demoda
-çalışan ekranları göstermek. Sadece Flutter'ın kendi paketlerini kullanır.
+Flutter mobil uygulaması. Giriş/kayıt ve dizi oluşturma/listeleme Supabase'e bağlı;
+bölüm üretimi, oynatıcı, oylama ve maliyet ekranı henüz örnek (mock) veri kullanır.
 
 ## Çalıştırma
 
@@ -15,6 +15,15 @@ flutter run
 ```
 
 Gereken: Flutter 3.19 veya üstü (Dart >= 3.3).
+
+## Supabase
+
+1. Supabase projesinde `supabase/schema.sql` dosyasını SQL Editor'da çalıştır.
+2. `lib/config.dart` içindeki URL ve publishable anahtarı kendi projenle eşleştir.
+3. Authentication > Providers > Email: geliştirme için "Confirm email" kapatılabilir.
+
+`service_role` / secret anahtarını asla uygulamaya veya repoya koyma.
+`docs/dartpad_main.dart` tarayıcıda (DartPad) çalışan, Supabase'siz sahte veri sürümüdür.
 
 ## Ekranlar
 
