@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'cost_panel_screen.dart';
 import 'create_series_screen.dart';
 import 'home_screen.dart';
+import 'profile_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -23,6 +24,7 @@ class _HomeShellState extends State<HomeShell> {
           HomeScreen(key: _homeKey),
           CreateSeriesScreen(onCreated: () => _homeKey.currentState?.reload()),
           const CostPanelScreen(),
+          const ProfileScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -43,6 +45,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.savings_outlined),
             selectedIcon: Icon(Icons.savings),
             label: 'Maliyet',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profil',
           ),
         ],
       ),

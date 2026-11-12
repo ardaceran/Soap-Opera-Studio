@@ -39,6 +39,39 @@ class Repo {
         .eq('id', user.id);
   }
 
+  // --------------------------------------------------------------- profile
+
+  static String? get email => _db.auth.currentUser?.email;
+
+  static Future<Map<String, dynamic>?> fetchProfile() async {
+    final user = _db.auth.currentUser;
+    if (user == null) return null;
+    return await _db.from('profiles').select().eq('id', user.id).maybeSingle();
+  }
+
+  static Future<void> updateDisplayName(String name) async {
+    final user = _db.auth.currentUser;
+    if (user == null) return;
+    await _db.from('profiles').update({'display_name': name}).eq('id', user.id);
+  }
+
+  static Future<int> ownSeriesCount() async {
+    final user = _db.auth.currentUser;
+    if (user == null) return 0;
+    final rows = await _db.from('series').select('id').eq('owner_id', user.id);
+    return rows.length;
+  }
+
+  /// Hesabı ve tüm verilerini kalıcı siler (supabase/002_delete_account.sql gerekir).
+  static Future<void> deleteAccount() async {
+    await _db.rpc('delete_my_account');
+    try {
+      await _db.auth.signOut();
+    } catch (_) {
+      // Kullanıcı zaten silindi; yerel oturumu temizlemek yeterli.
+    }
+  }
+
   // ---------------------------------------------------------------- series
 
   static const List<Color> _charColors = [

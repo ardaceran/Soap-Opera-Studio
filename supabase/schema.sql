@@ -264,3 +264,5 @@ create policy refs_owner_all on storage.objects for all
 -- ---------------------------------------------------------------- realtime
 alter publication supabase_realtime add table public.jobs;
 alter publication supabase_realtime add table public.votes;
+
+-- Hesap silme fonksiyonu: ayrıca supabase/002_delete_account.sql içinde (mevcut projeye eklemek için).
