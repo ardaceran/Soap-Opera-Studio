@@ -2,11 +2,43 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../repository.dart';
+import 'add_episode_screen.dart';
 import 'episode_player_screen.dart';
 
-class SeriesDetailScreen extends StatelessWidget {
+class SeriesDetailScreen extends StatefulWidget {
   const SeriesDetailScreen({super.key, required this.series});
   final Series series;
+
+  @override
+  State<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
+}
+
+class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
+  late Series series = widget.series;
+
+  bool get _isOwner => Repo.userId != null && Repo.userId == series.ownerId;
+
+  Future<void> _reload() async {
+    try {
+      final s = await Repo.fetchSeriesById(series.id);
+      if (mounted) setState(() => series = s);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(errText(e))));
+      }
+    }
+  }
+
+  Future<void> _addEpisode() async {
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AddEpisodeScreen(series: series),
+      ),
+    );
+    if (added == true) await _reload();
+  }
 
   void _openEpisode(BuildContext context, Episode e) {
     final playable =
@@ -33,6 +65,13 @@ class SeriesDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: _isOwner
+          ? FloatingActionButton.extended(
+              onPressed: _addEpisode,
+              icon: const Icon(Icons.add),
+              label: const Text('Add episode'),
+            )
+          : null,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -116,12 +155,14 @@ class SeriesDetailScreen extends StatelessWidget {
             ),
           ),
           if (series.episodes.isEmpty)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Text(
-                  'No episodes yet. The season plan and episodes will appear here once the generation pipeline is connected.',
-                  style: TextStyle(color: Colors.white54),
+                  _isOwner
+                      ? 'No episodes yet. Tap "Add episode" to write the first one.'
+                      : 'No episodes yet.',
+                  style: const TextStyle(color: Colors.white54),
                 ),
               ),
             ),
@@ -154,7 +195,7 @@ class SeriesDetailScreen extends StatelessWidget {
               childCount: series.episodes.length,
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(child: SizedBox(height: 96)),
         ],
       ),
     );

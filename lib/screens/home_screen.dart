@@ -148,11 +148,14 @@ class HomeScreenState extends State<HomeScreen> {
               for (final s in list)
                 SeriesCard(
                   series: s,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => SeriesDetailScreen(series: s),
-                    ),
-                  ),
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => SeriesDetailScreen(series: s),
+                      ),
+                    );
+                    reload(); // pick up episodes added on the detail screen
+                  },
                 ),
             ],
           );

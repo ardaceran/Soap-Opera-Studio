@@ -139,6 +139,7 @@ class Repo {
 
     return Series(
       id: r['id'] as String,
+      ownerId: r['owner_id'] as String,
       title: (r['title'] ?? '') as String,
       genre: genre,
       setting: (r['setting'] ?? '') as String,
@@ -156,6 +157,38 @@ class Repo {
   }
 
   /// All visible series: the user's own plus those with published episodes (decided by RLS).
+  static String? get userId => _db.auth.currentUser?.id;
+
+  static Future<Series> fetchSeriesById(String id) async {
+    final r = await _db
+        .from('series')
+        .select('*, characters(*), episodes(*, polls(id, closes_at))')
+        .eq('id', id)
+        .single();
+    return _fromRow(r);
+  }
+
+  /// Owner adds a published episode with its scenes and an optional poll
+  /// (supabase function add_episode). Returns the episode id.
+  static Future<String> addEpisode({
+    required String seriesId,
+    required String title,
+    required String summary,
+    required List<String> lines,
+    required List<String> pollOptions,
+    required int pollHours,
+  }) async {
+    final id = await _db.rpc('add_episode', params: {
+      'p_series_id': seriesId,
+      'p_title': title,
+      'p_summary': summary,
+      'p_lines': lines,
+      'p_poll_options': pollOptions,
+      'p_poll_hours': pollHours,
+    });
+    return id as String;
+  }
+
   static Future<List<Series>> fetchSeries() async {
     final rows = await _db
         .from('series')

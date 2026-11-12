@@ -66,6 +66,7 @@ class JobInfo {
 class Series {
   const Series({
     required this.id,
+    required this.ownerId,
     required this.title,
     required this.genre,
     required this.setting,
@@ -74,6 +75,7 @@ class Series {
     required this.episodes,
   });
   final String id;
+  final String ownerId;
   final String title;
   final String genre;
   final String setting;

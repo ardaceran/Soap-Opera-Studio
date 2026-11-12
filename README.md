@@ -23,6 +23,7 @@ Team: Arda Ceran and Mert.
 | --- | --- |
 | Sign-in / sign-up, KVKK consent, account deletion | Working (Supabase Auth) |
 | Create and list series and characters | Working (one transaction via the `create_series` function; queues a season-plan job) |
+| Add an episode by hand (owner): scenes + optional poll | Working (`add_episode` function) |
 | Live voting, one vote per user | Working (Supabase) |
 | Episode generation (Claude, images, voice, FFmpeg) | Planned — the status screen shows the real job queue, which waits for the worker |
 | Episode player | Reads scenes from the database (animated stills + captions); real video planned |
@@ -75,7 +76,8 @@ Build an Android APK: `flutter build apk`.
 
 1. Create a project and run the SQL files in the SQL Editor, in order:
    `supabase/schema.sql`, `supabase/002_delete_account.sql`.
-   An existing project created before this change also needs `supabase/005_fixes.sql`.
+   An existing project created before these changes also needs `supabase/005_fixes.sql`
+   and `supabase/006_add_episode.sql`.
 2. Authentication > Providers > Email: turn "Confirm email" off during development.
 3. Put your project URL and **publishable** key in `lib/config.dart`.
 4. Optional sample data (for testing only): create an account in the app, then run
