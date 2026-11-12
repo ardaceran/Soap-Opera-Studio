@@ -1,54 +1,100 @@
-# Soap Opera Studio — Flutter app prototype
+# AI Soap Opera Studio
 
-Flutter mobile app. Sign-in/sign-up, series creation/listing and voting are connected to
-Supabase; episode generation, the player and the cost screen still use sample (mock) data.
+A mobile app where anyone can create a short vertical-video soap opera with AI, and the
+audience votes on what happens in the next episode.
 
-## Run
+Course project 13 — EBGR 4451 (Gen-AI / Mechatronics Lab, Dr. Orkun Karabaşoğlu).
+Team: Arda Ceran and Mert.
 
-```bash
-flutter create soap_opera_studio --platforms=android,ios
-cd soap_opera_studio
-# copy lib/ and pubspec.yaml from this repo over the generated ones
-rm test/widget_test.dart      # Windows: del test\widget_test.dart
-flutter pub get
-flutter run
+## What the app does
+
+1. **Sign in** with email and password (KVKK consent is required at sign-up).
+2. **Create a series:** pick a genre, a setting and 2–4 characters.
+3. **Generate episodes:** Claude writes the season arc and scripts; images, voice and
+   captions are generated and assembled into a 60–90 second 9:16 episode.
+4. **Vote:** viewers vote on the next episode's direction; the winning option goes into
+   the next script. Results update live.
+5. **Cost:** the cost of each episode is measured and shown.
+6. **Privacy:** users can edit their profile and permanently delete their account and data.
+
+## Status
+
+| Feature | Status |
+| --- | --- |
+| Sign-in / sign-up, KVKK consent, account deletion | Working (Supabase Auth) |
+| Create and list series and characters | Working (Supabase) |
+| Live voting, one vote per user | Working (Supabase) |
+| Episode generation (Claude, images, voice, FFmpeg) | Planned — the app shows a simulated pipeline |
+| Episode player with real video | Planned — the app plays a mock episode |
+| Cost per episode | Planned — mock screen; data model is ready (`episode_costs` view) |
+
+## Architecture
+
+```
+Flutter app ──► Supabase (Auth, Postgres + RLS, Storage, Realtime)
+                    ▲
+                    │ job queue (`jobs` table)
+                    │
+                Worker (Docker) ──► Claude (season arc, scripts, scene list)
+                                ├─► fal.ai (Flux images, Kling/Veo key shots)
+                                ├─► ElevenLabs (voice)
+                                └─► FFmpeg (captions, 1080×1920 assembly)
 ```
 
-Requires Flutter 3.19 or newer (Dart >= 3.3).
+- Series bible with `pgvector` (RAG) keeps continuity between episodes.
+- Most scenes are animated stills; real video is used only for key moments.
+- Row Level Security protects all data; the worker uses the service role on the server side only.
 
-## Supabase
+## Project layout
 
-1. Run `supabase/schema.sql` in the Supabase SQL Editor.
-2. Run `supabase/002_delete_account.sql` (account deletion, KVKK right to erasure).
-3. Point the URL and publishable key in `lib/config.dart` to your own project.
-4. Authentication > Providers > Email: "Confirm email" can be turned off during development.
+```
+lib/                 Flutter app (screens, Supabase access in repository.dart)
+supabase/            SQL: schema.sql, 002_delete_account.sql, 003_seed_demo.sql
+docs/                DartPad single-file demo (mock data, no backend)
+.env.example         Server-side keys (never commit a real .env)
+```
 
-Never put the `service_role` / secret key in the app or in the repo.
-`docs/dartpad_main.dart` is a browser (DartPad) version with fake data and no Supabase.
+## Setup
 
-## Voting and sample data
+### 1. Flutter app
 
-1. Run `supabase/003_seed_demo.sql` in the Supabase SQL Editor (create an account in the app first).
-2. A "Vote" banner appears on the Series tab; votes are written to the `votes` table and
-   results refresh every 3 seconds.
+Requires Flutter 3.19+ (Dart 3.3+).
 
-## Screens
+```bash
+git clone https://github.com/ardaceran/Soap-Opera-Studio.git
+cd Soap-Opera-Studio
+flutter create . --platforms=android,ios,web   # generates the platform folders
+rm test/widget_test.dart                       # Windows: del test\widget_test.dart
+flutter pub get
+flutter run                                    # or: flutter run -d chrome
+```
 
-| Screen | File | What it shows in the demo |
-| --- | --- | --- |
-| Login | `login_screen.dart` | Email/password, KVKK consent (sign-up blocked without it), guest browsing |
-| Series | `home_screen.dart` | Series cards, open-poll banner |
-| Series detail | `series_detail_screen.dart` | Characters (character lock), season plan, episode statuses |
-| Create | `create_series_screen.dart` | Genre, setting, choosing 2–4 characters |
-| Generation status | `generation_status_screen.dart` | The 8-step pipeline from the architecture (simulated) |
-| Episode player | `episode_player_screen.dart` | 9:16, Ken Burns, captions, AI label |
-| Voting | `vote_sheet.dart` | One vote per user, live percentages (Supabase) |
-| Cost | `cost_panel_screen.dart` | Budget slider + real 0-1 knapsack: which scenes become video (mock) |
-| Profile | `profile_screen.dart` | Display name, KVKK consent date, sign out, delete account |
+Build an Android APK: `flutter build apk`.
 
-## Next steps (backend)
+### 2. Supabase
 
-- Replace the remaining mock data with real episodes and scenes
-- Generation status: Realtime on the `jobs` table
-- Cost: `episode_costs` view
-- Worker: Claude season plan and scripts, fal.ai images, ElevenLabs voice, FFmpeg assembly
+1. Create a project and run the SQL files in the SQL Editor, in order:
+   `supabase/schema.sql`, `supabase/002_delete_account.sql`.
+2. Authentication > Providers > Email: turn "Confirm email" off during development.
+3. Put your project URL and **publishable** key in `lib/config.dart`.
+4. Optional sample data: create an account in the app, then run `supabase/003_seed_demo.sql`.
+
+### 3. Secrets
+
+- The publishable key in `lib/config.dart` is safe to ship; security comes from RLS.
+- Copy `.env.example` to `.env` for the worker. **Never commit `.env`**, and never put the
+  `service_role` / secret key, the database password or any API key in the app or the repo.
+- Set a spending limit on every paid API (Anthropic, fal.ai, ElevenLabs).
+
+## Roadmap (Demo Day)
+
+- [ ] A 3-episode mini series with consistent characters
+- [ ] Live audience vote that changes the next episode
+- [ ] Cost per episode measured and shown
+- [ ] Public deployment, demo video, technical report, user guide
+
+## Safety and privacy
+
+- KVKK consent at sign-up and a delete-my-account option.
+- Moderation on generated content; real faces only with explicit consent.
+- AI-generated content is labeled in the player.
