@@ -18,7 +18,7 @@ class HomeScreenState extends State<HomeScreen> {
   late Future<List<Series>> _future = Repo.fetchSeries();
   late Future<List<PollInfo>> _polls = Repo.fetchOpenPolls();
 
-  /// Dışarıdan (ör. dizi oluşturulunca) listeyi yeniler.
+  /// Refreshes the list from outside (e.g. after a series is created).
   void reload() {
     setState(() {
       _future = Repo.fetchSeries();
@@ -41,13 +41,13 @@ class HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.how_to_vote, color: kGold),
                   title: Text(
-                    '${p.seriesTitle}: Bölüm ${p.episodeNumber + 1} için oylama açık',
+                    '${p.seriesTitle}: voting is open for episode ${p.episodeNumber + 1}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: const Text('Sonraki bölümü sen belirle'),
+                  subtitle: const Text('You decide the next episode'),
                   trailing: FilledButton(
                     onPressed: () => showVoteSheet(context, p),
-                    child: const Text('Oy ver'),
+                    child: const Text('Vote'),
                   ),
                 ),
               ),
@@ -75,23 +75,23 @@ class HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Diziler',
+        title: const Text('Series',
             style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            tooltip: 'Yenile',
+            tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: reload,
           ),
           if (Repo.signedIn)
             IconButton(
-              tooltip: 'Çıkış yap',
+              tooltip: 'Sign out',
               icon: const Icon(Icons.logout),
               onPressed: _signOut,
             )
           else
             IconButton(
-              tooltip: 'Giriş yap',
+              tooltip: 'Sign in',
               icon: const Icon(Icons.login),
               onPressed: _goLogin,
             ),
@@ -113,12 +113,12 @@ class HomeScreenState extends State<HomeScreen> {
                     const Icon(Icons.cloud_off, size: 40),
                     const SizedBox(height: 12),
                     Text(
-                      'Diziler yüklenemedi:\n${errText(snap.error!)}',
+                      'Could not load series:\n${errText(snap.error!)}',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
                     FilledButton(
-                        onPressed: reload, child: const Text('Tekrar dene')),
+                        onPressed: reload, child: const Text('Try again')),
                   ],
                 ),
               ),
@@ -130,7 +130,7 @@ class HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'Henüz dizi yok.\nOluştur sekmesinden ilk dizini yarat.',
+                  'No series yet.\nCreate your first one from the Create tab.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),

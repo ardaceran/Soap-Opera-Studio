@@ -16,8 +16,8 @@ class SeriesDetailScreen extends StatelessWidget {
         SnackBar(
           content: Text(
             e.status == EpisodeStatus.rendering
-                ? 'Bölüm hâlâ üretiliyor.'
-                : 'Bu bölüm önceki bölümün oylamasından sonra açılır.',
+                ? 'This episode is still being generated.'
+                : 'This episode unlocks after the previous episode\'s vote.',
           ),
         ),
       );
@@ -62,7 +62,7 @@ class SeriesDetailScreen extends StatelessWidget {
                   Text('${series.genre} · ${series.setting}',
                       style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 20),
-                  Text('Karakterler',
+                  Text('Characters',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -98,14 +98,14 @@ class SeriesDetailScreen extends StatelessWidget {
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Karakter kilidi: yüzler referans görsellerle sabit tutulur.',
+                          'Character lock: faces are kept consistent with reference images.',
                           style: TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Text('Sezon planı',
+                  Text('Season plan',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -120,7 +120,7 @@ class SeriesDetailScreen extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Text(
-                  'Henüz bölüm yok. Üretim hattı bağlanınca sezon planı ve bölümler burada görünecek.',
+                  'No episodes yet. The season plan and episodes will appear here once the generation pipeline is connected.',
                   style: TextStyle(color: Colors.white54),
                 ),
               ),

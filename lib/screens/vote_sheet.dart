@@ -4,7 +4,7 @@ import '../data.dart';
 import '../repository.dart';
 import '../theme.dart';
 
-/// Gerçek anket penceresi: oylar Supabase'e yazılır, sonuçlar 3 saniyede bir yenilenir.
+/// Real poll sheet: votes are written to Supabase and results refresh every 3 seconds.
 Future<void> showVoteSheet(BuildContext context, PollInfo poll) {
   return showModalBottomSheet<void>(
     context: context,
@@ -58,14 +58,14 @@ class _VoteSheetState extends State<_VoteSheet> {
         _picked = mine;
       });
     } catch (_) {
-      // Geçici ağ hatası: bir sonraki yenilemede tekrar denenir.
+      // Temporary network error: retried on the next refresh.
     }
   }
 
   Future<void> _vote(String optionId) async {
     if (_picked != null || _busy || _closed) return;
     if (!Repo.signedIn) {
-      setState(() => _msg = 'Oy vermek için giriş yapmalısın.');
+      setState(() => _msg = 'You need to sign in to vote.');
       return;
     }
     setState(() {
@@ -84,10 +84,10 @@ class _VoteSheetState extends State<_VoteSheet> {
 
   String _closesText() {
     final d = widget.poll.closesAt.difference(DateTime.now());
-    if (d.isNegative) return 'Oylama kapandı';
-    if (d.inDays >= 1) return 'Oylama ${d.inDays} gün ${d.inHours % 24} saat sonra kapanır';
-    if (d.inHours >= 1) return 'Oylama ${d.inHours} saat ${d.inMinutes % 60} dk sonra kapanır';
-    return 'Oylama ${d.inMinutes + 1} dk içinde kapanır';
+    if (d.isNegative) return 'Voting closed';
+    if (d.inDays >= 1) return 'Voting closes in ${d.inDays} d ${d.inHours % 24} h';
+    if (d.inHours >= 1) return 'Voting closes in ${d.inHours} h ${d.inMinutes % 60} min';
+    return 'Voting closes in ${d.inMinutes + 1} min';
   }
 
   Widget _tile(PollOption o) {
@@ -119,7 +119,7 @@ class _VoteSheetState extends State<_VoteSheet> {
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                   if (showResults)
-                    Text('$votes oy · %${(pct * 100).round()}',
+                    Text('$votes votes · ${(pct * 100).round()}%',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -168,7 +168,7 @@ class _VoteSheetState extends State<_VoteSheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            '${poll.seriesTitle} · Bölüm ${poll.episodeNumber + 1} için oy ver',
+            '${poll.seriesTitle} · Vote for episode ${poll.episodeNumber + 1}',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -176,7 +176,7 @@ class _VoteSheetState extends State<_VoteSheet> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Kazanan seçenek bir sonraki bölümün senaryosuna girer.',
+            'The winning option goes into the next episode\'s script.',
             style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 16),
@@ -190,8 +190,8 @@ class _VoteSheetState extends State<_VoteSheet> {
             ),
           Text(
             _picked != null
-                ? 'Oyun kaydedildi. Toplam $_total oy · sonuçlar canlı güncellenir. ${_closesText()}.'
-                : '${_closesText()}. Her kullanıcı bir oy kullanabilir.',
+                ? 'Your vote is saved. $_total votes in total · results update live. ${_closesText()}.'
+                : '${_closesText()}. Each user can vote once.',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],

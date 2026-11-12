@@ -6,7 +6,7 @@ import 'generation_status_screen.dart';
 class CreateSeriesScreen extends StatefulWidget {
   const CreateSeriesScreen({super.key, this.onCreated});
 
-  /// Dizi veritabanına kaydedilince çağrılır (ana sayfa listesini yenilemek için).
+  /// Called after the series is saved to the database (to refresh the home list).
   final VoidCallback? onCreated;
 
   @override
@@ -14,23 +14,23 @@ class CreateSeriesScreen extends StatefulWidget {
 }
 
 class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
-  static const _genres = ['Dram', 'Romantik', 'Gerilim', 'Komedi'];
+  static const _genres = ['Drama', 'Romance', 'Thriller', 'Comedy'];
   static const _settings = [
-    'İzmir villası',
-    'Hastane',
-    'Holding',
-    'Köy konağı',
+    'Izmir villa',
+    'Hospital',
+    'Corporate holding',
+    'Village mansion',
   ];
-  static const _roles = ['Kahraman', 'Kötü', 'Gizemli', 'Komik'];
+  static const _roles = ['Hero', 'Villain', 'Mysterious', 'Comic'];
 
   final _title = TextEditingController();
-  String _genre = 'Dram';
-  String _setting = 'İzmir villası';
+  String _genre = 'Drama';
+  String _setting = 'Izmir villa';
   final List<TextEditingController> _names = [
     TextEditingController(),
     TextEditingController(),
   ];
-  final List<String> _charRoles = ['Kahraman', 'Gizemli'];
+  final List<String> _charRoles = ['Hero', 'Mysterious'];
   bool _saving = false;
 
   @override
@@ -45,7 +45,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
   void _addCharacter() {
     setState(() {
       _names.add(TextEditingController());
-      _charRoles.add('Kötü');
+      _charRoles.add('Villain');
     });
   }
 
@@ -73,11 +73,11 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
     }
     final title = _title.text.trim();
     if (title.isEmpty || names.length < 2) {
-      _snack('Dizi adı ve en az 2 karakter adı gerekli.');
+      _snack('A series title and at least 2 character names are required.');
       return;
     }
     if (!Repo.signedIn) {
-      _snack('Dizi oluşturmak için giriş yapmalısın.');
+      _snack('You need to sign in to create a series.');
       return;
     }
     setState(() => _saving = true);
@@ -118,7 +118,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Yeni dizi',
+        title: const Text('New series',
             style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
@@ -128,12 +128,12 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
           TextField(
             controller: _title,
             decoration: const InputDecoration(
-              labelText: 'Dizi adı',
-              hintText: 'Örn. Kırmızı Villa',
+              labelText: 'Series title',
+              hintText: 'e.g. Red Villa',
               border: OutlineInputBorder(),
             ),
           ),
-          _label('Tür'),
+          _label('Genre'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -146,7 +146,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                 ),
             ],
           ),
-          _label('Mekân'),
+          _label('Setting'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -159,7 +159,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                 ),
             ],
           ),
-          _label('Karakterler (2–4)'),
+          _label('Characters (2–4)'),
           for (var i = 0; i < _names.length; i++)
             Card(
               color: kCard,
@@ -172,7 +172,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                       child: TextField(
                         controller: _names[i],
                         decoration: InputDecoration(
-                          labelText: 'Karakter ${i + 1}',
+                          labelText: 'Character ${i + 1}',
                           border: const OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -205,7 +205,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
               child: TextButton.icon(
                 onPressed: _addCharacter,
                 icon: const Icon(Icons.add),
-                label: const Text('Karakter ekle'),
+                label: const Text('Add character'),
               ),
             ),
           const SizedBox(height: 12),
@@ -221,7 +221,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Karakterler için referans görseller üretilir ve sen onaylarsın. Gerçek kişi yüzü kullanılmaz.',
+                    'Reference images are generated for the characters and you approve them. Real people\'s faces are not used.',
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
@@ -239,7 +239,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
-                  : const Text('Diziyi kaydet ve sezon planını başlat'),
+                  : const Text('Save series and start the season plan'),
             ),
           ),
         ],

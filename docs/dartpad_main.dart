@@ -1,4 +1,4 @@
-// Soap Opera Studio - tek dosyalı sürüm (DartPad için). Mock veri, backend yok.
+// Soap Opera Studio - single-file version (for DartPad). Mock data, no backend.
 import 'dart:async';
 import 'package:flutter/material.dart';
 
@@ -30,7 +30,7 @@ ThemeData buildTheme() {
 String usd(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
 
 // ===== data.dart =====
-// Örnek (mock) veri. Gerçek uygulamada bu veriler Supabase'den gelecek.
+// Sample (mock) data. In the real app this comes from Supabase.
 
 class Character {
   const Character(this.name, this.role, this.color);
@@ -68,84 +68,84 @@ class Series {
   final List<Episode> episodes;
 }
 
-/// Maliyet ekranındaki knapsack örneği için sahne planı.
+/// Scene plan for the knapsack example on the cost screen.
 class ScenePlan {
   const ScenePlan(this.title, this.importance, this.videoCostCents);
   final String title;
-  final int importance; // 1-10 dramatik önem
-  final int videoCostCents; // örnek video maliyeti (cent)
+  final int importance; // 1-10 dramatic importance
+  final int videoCostCents; // sample video cost (cents)
 }
 
 const List<Series> kSeries = [
   Series(
     id: 's1',
-    title: 'Kırmızı Villa',
-    genre: 'Dram · Entrika',
-    setting: 'İzmir, deniz kenarı villası',
+    title: 'Red Villa',
+    genre: 'Drama · Intrigue',
+    setting: 'A seaside villa in Izmir',
     colors: [Color(0xFF8E1B3A), Color(0xFF2A0F1E)],
     characters: [
-      Character('Defne', 'Villanın varisi', Color(0xFFE6B450)),
+      Character('Defne', 'Heir of the villa', Color(0xFFE6B450)),
       Character('Kerem', 'Gizemli avukat', Color(0xFF5AA9E6)),
-      Character('Nilüfer', 'Üvey anne', Color(0xFFB06AB3)),
+      Character('Nilufer', 'Stepmother', Color(0xFFB06AB3)),
     ],
     episodes: [
-      Episode(1, 'Vasiyet', 'Defne babasının vasiyeti için villaya döner.',
+      Episode(1, 'The Will', 'Defne returns to the villa for her father\'s will.',
           EpisodeStatus.published),
-      Episode(2, 'Kapalı Oda', 'Kilitli odada eski bir mektup bulunur.',
+      Episode(2, 'The Locked Room', 'An old letter is found in the locked room.',
           EpisodeStatus.voting),
-      Episode(3, 'Sır', 'Mektubun sahibi ortaya çıkar.',
+      Episode(3, 'The Secret', 'The letter\'s author is revealed.',
           EpisodeStatus.rendering),
-      Episode(4, 'Yüzleşme', 'Aile akşam yemeğinde hesaplaşır.',
+      Episode(4, 'Confrontation', 'The family settles scores at dinner.',
           EpisodeStatus.locked),
-      Episode(5, 'Final', 'Sezonun büyük sırrı açığa çıkar.',
+      Episode(5, 'Finale', 'The season\'s big secret comes out.',
           EpisodeStatus.locked),
     ],
   ),
   Series(
     id: 's2',
-    title: 'Son Vapur',
-    genre: 'Romantik · Dram',
-    setting: 'Karşıyaka iskelesi',
+    title: 'The Last Ferry',
+    genre: 'Romance · Drama',
+    setting: 'Karsiyaka pier',
     colors: [Color(0xFF1B5E8E), Color(0xFF0F1E2A)],
     characters: [
-      Character('Ece', 'Gemi kaptanının kızı', Color(0xFFE6B450)),
-      Character('Barış', 'Genç gazeteci', Color(0xFF4CAF7A)),
+      Character('Ece', 'Ship captain\'s daughter', Color(0xFFE6B450)),
+      Character('Baris', 'Young journalist', Color(0xFF4CAF7A)),
     ],
     episodes: [
-      Episode(1, 'İlk Sefer', 'Ece ve Barış vapurda tanışır.',
+      Episode(1, 'First Voyage', 'Ece and Baris meet on the ferry.',
           EpisodeStatus.published),
-      Episode(2, 'Sis', 'Sisli bir akşam planlar değişir.',
+      Episode(2, 'Fog', 'Plans change on a foggy evening.',
           EpisodeStatus.locked),
-      Episode(3, 'Mektup', 'Eski bir sır iskeleye ulaşır.',
+      Episode(3, 'The Letter', 'An old secret reaches the pier.',
           EpisodeStatus.locked),
     ],
   ),
 ];
 
 const List<ScenePlan> kScenePlan = [
-  ScenePlan('Villa kapısında sürpriz misafir', 6, 90),
-  ScenePlan('Kahvaltı sofrasında gergin bakışlar', 3, 70),
-  ScenePlan('Mektubun bulunması', 8, 110),
-  ScenePlan('Merdivende yüzleşme', 9, 120),
-  ScenePlan('Telefon konuşması', 2, 60),
-  ScenePlan('Bahçede gizli buluşma', 7, 100),
-  ScenePlan('Vasiyetin okunması', 8, 110),
-  ScenePlan('Sessiz akşam yemeği', 3, 70),
-  ScenePlan('Cliffhanger: kapı açılır', 10, 130),
-  ScenePlan('Geçmişe dönüş sahnesi', 5, 90),
+  ScenePlan('Surprise guest at the villa door', 6, 90),
+  ScenePlan('Tense looks at the breakfast table', 3, 70),
+  ScenePlan('The letter is found', 8, 110),
+  ScenePlan('Confrontation on the stairs', 9, 120),
+  ScenePlan('Phone call', 2, 60),
+  ScenePlan('Secret meeting in the garden', 7, 100),
+  ScenePlan('Reading of the will', 8, 110),
+  ScenePlan('Silent dinner', 3, 70),
+  ScenePlan('Cliffhanger: the door opens', 10, 130),
+  ScenePlan('Flashback scene', 5, 90),
 ];
 
 // ===== widgets.dart =====
 String statusLabel(EpisodeStatus s) {
   switch (s) {
     case EpisodeStatus.published:
-      return 'Yayında';
+      return 'Published';
     case EpisodeStatus.voting:
-      return 'Oylamada';
+      return 'Voting';
     case EpisodeStatus.rendering:
-      return 'Üretiliyor';
+      return 'Generating';
     case EpisodeStatus.locked:
-      return 'Kilitli';
+      return 'Locked';
   }
 }
 
@@ -265,7 +265,7 @@ class SeriesCard extends StatelessWidget {
                           child: CharacterAvatar(c, radius: 14),
                         ),
                       const Spacer(),
-                      Text('$published bölüm yayında',
+                      Text('$published episodes published',
                           style: const TextStyle(color: Colors.white70)),
                     ],
                   ),
@@ -308,9 +308,9 @@ class _VoteSheet extends StatefulWidget {
 
 class _VoteSheetState extends State<_VoteSheet> {
   final List<String> _options = const [
-    'Defne mektubu yakar',
-    "Defne mektubu Kerem'e verir",
-    'Nilüfer mektubu çalar',
+    'Defne burns the letter',
+    "Defne gives the letter to Kerem",
+    'Nilufer steals the letter',
   ];
   final List<int> _votes = [41, 33, 26];
   int? _picked;
@@ -402,7 +402,7 @@ class _VoteSheetState extends State<_VoteSheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            '${widget.seriesTitle} · Bölüm ${widget.nextEpisode} için oy ver',
+            '${widget.seriesTitle} · Vote for episode ${widget.nextEpisode}',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -410,7 +410,7 @@ class _VoteSheetState extends State<_VoteSheet> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Kazanan seçenek bir sonraki bölümün senaryosuna girer.',
+            'The winning option goes into the next episode\'s script.',
             style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 16),
@@ -418,8 +418,8 @@ class _VoteSheetState extends State<_VoteSheet> {
           const SizedBox(height: 4),
           Text(
             _picked == null
-                ? 'Her kullanıcı bir oy kullanabilir.'
-                : 'Oyun kaydedildi. Sonuçlar canlı güncellenir. (örnek veri)',
+                ? 'Each user can vote once.'
+                : 'Your vote is saved. Results update live. (sample data)',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
@@ -436,19 +436,19 @@ class _PlayerScene {
   final List<Color> colors;
 }
 
-// Örnek sahneler. Gerçekte her sahne bir Flux görseli / video klibi + ses olacak.
+// Sample scenes. In the real app each scene is a Flux image / video clip plus audio.
 const List<_PlayerScene> _scenes = [
-  _PlayerScene('Defne', 'Babamın vasiyeti bu odada okunacak.',
+  _PlayerScene('Defne', 'My father\'s will will be read in this room.',
       [Color(0xFF8E1B3A), Color(0xFF2A0F1E)]),
-  _PlayerScene('Nilüfer', 'Bu villa yıllardır benim evim.',
+  _PlayerScene('Nilufer', 'This villa has been my home for years.',
       [Color(0xFF6A2C70), Color(0xFF1A0F22)]),
-  _PlayerScene('Kerem', 'Mektubu kimse bulmamalıydı.',
+  _PlayerScene('Kerem', 'Nobody was supposed to find the letter.',
       [Color(0xFF1B5E8E), Color(0xFF0F1E2A)]),
-  _PlayerScene('Defne', 'Demek her şeyi biliyordun.',
+  _PlayerScene('Defne', 'So you knew everything all along.',
       [Color(0xFF8E1B3A), Color(0xFF3A1A0A)]),
-  _PlayerScene('Nilüfer', 'Gece yarısı bahçede görüşelim.',
+  _PlayerScene('Nilufer', 'Meet me in the garden at midnight.',
       [Color(0xFF2A4A3A), Color(0xFF0F1A14)]),
-  _PlayerScene('Anlatıcı', 'Kapı yavaşça açıldı...',
+  _PlayerScene('Narrator', 'The door slowly opened...',
       [Color(0xFF111111), Color(0xFF8E1B3A)]),
 ];
 
@@ -536,7 +536,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Ken Burns: sabit görsel üzerinde yavaş yakınlaşma
+                        // Ken Burns: slow zoom on a still image
                         Transform.scale(
                           scale: 1.0 + 0.12 * local,
                           child: DecoratedBox(
@@ -556,7 +556,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                             ),
                           ),
                         ),
-                        // sahne ilerleme çubukları
+                        // scene progress bars
                         Positioned(
                           top: 12,
                           left: 12,
@@ -590,7 +590,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                                   size: 14, color: kGold),
                               const SizedBox(width: 4),
                               Text(
-                                'AI ile üretildi · ${widget.series.title} B${widget.episode.number}',
+                                'AI-generated · ${widget.series.title} E${widget.episode.number}',
                                 style: const TextStyle(
                                     fontSize: 12, color: Colors.white70),
                               ),
@@ -605,7 +605,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ),
-                        // altyazı
+                        // caption
                         Positioned(
                           left: 24,
                           right: 24,
@@ -644,7 +644,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                           child: FilledButton.icon(
                             onPressed: _openVote,
                             icon: const Icon(Icons.how_to_vote),
-                            label: const Text('Sonraki bölüm için oy ver'),
+                            label: const Text('Vote for the next episode'),
                           ),
                         ),
                         if (_paused)
@@ -672,16 +672,16 @@ class _Step {
   final String detail;
 }
 
-// Mimarideki 8 adımlı üretim hattı (gerçekte worker yapar, uygulama sadece durumu izler).
+// The 8-step pipeline from the architecture (the worker does the real work; the app only tracks status).
 const List<_Step> _steps = [
-  _Step('Sezon planı', 'Claude sezon arkını ve dizi bible\'ını yazıyor'),
-  _Step('Karakter kilidi', 'Referans görseller üretiliyor'),
-  _Step('Bölüm senaryosu', 'Bağlam çekiliyor, sahneler yazılıyor'),
-  _Step('Moderasyon', 'İçerik kuralları kontrol ediliyor'),
-  _Step('Bütçe kararı', 'Hangi sahneler video olacak? (knapsack)'),
-  _Step('Sahne medyası', 'Görsel, video ve ses üretiliyor'),
-  _Step('Montaj', 'FFmpeg ile 1080×1920 video birleştiriliyor'),
-  _Step('Yayın', 'Bölüm yayınlanıyor, oylama açılıyor'),
+  _Step('Season plan', 'Claude is writing the season arc and series bible'),
+  _Step('Character lock', 'Generating reference images'),
+  _Step('Episode script', 'Retrieving context, writing scenes'),
+  _Step('Moderation', 'Checking content rules'),
+  _Step('Budget decision', 'Which scenes become video? (knapsack)'),
+  _Step('Scene media', 'Generating images, video and audio'),
+  _Step('Assembly', 'Combining the 1080×1920 video with FFmpeg'),
+  _Step('Publish', 'Publishing the episode, opening the vote'),
 ];
 
 class GenerationStatusScreen extends StatefulWidget {
@@ -738,7 +738,7 @@ class _GenerationStatusScreenState extends State<GenerationStatusScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            finished ? 'Bölüm 1 hazır' : 'Üretim sürüyor...',
+            finished ? 'Episode 1 ready' : 'Generating...',
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
@@ -780,11 +780,11 @@ class _GenerationStatusScreenState extends State<GenerationStatusScreen> {
                 );
               },
               icon: const Icon(Icons.play_arrow),
-              label: const Text('Bölümü izle'),
+              label: const Text('Watch episode'),
             ),
           const SizedBox(height: 16),
           const Text(
-            'Gerçek uygulamada bu ekran, Supabase Realtime ile jobs tablosunun durumunu dinler. Şimdilik simülasyon.',
+            'In the real app this screen listens to the jobs table through Supabase Realtime. For now it is a simulation.',
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
@@ -806,8 +806,8 @@ class SeriesDetailScreen extends StatelessWidget {
         SnackBar(
           content: Text(
             e.status == EpisodeStatus.rendering
-                ? 'Bölüm hâlâ üretiliyor.'
-                : 'Bu bölüm önceki bölümün oylamasından sonra açılır.',
+                ? 'This episode is still being generated.'
+                : 'This episode unlocks after the previous episode\'s vote.',
           ),
         ),
       );
@@ -852,7 +852,7 @@ class SeriesDetailScreen extends StatelessWidget {
                   Text('${series.genre} · ${series.setting}',
                       style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 20),
-                  Text('Karakterler',
+                  Text('Characters',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -888,14 +888,14 @@ class SeriesDetailScreen extends StatelessWidget {
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Karakter kilidi: yüzler referans görsellerle sabit tutulur.',
+                          'Character lock: faces are kept consistent with reference images.',
                           style: TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Text('Sezon planı',
+                  Text('Season plan',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -950,23 +950,23 @@ class CreateSeriesScreen extends StatefulWidget {
 }
 
 class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
-  static const _genres = ['Dram', 'Romantik', 'Gerilim', 'Komedi'];
+  static const _genres = ['Drama', 'Romance', 'Thriller', 'Comedy'];
   static const _settings = [
-    'İzmir villası',
-    'Hastane',
-    'Holding',
-    'Köy konağı',
+    'Izmir villa',
+    'Hospital',
+    'Corporate holding',
+    'Village mansion',
   ];
-  static const _roles = ['Kahraman', 'Kötü', 'Gizemli', 'Komik'];
+  static const _roles = ['Hero', 'Villain', 'Mysterious', 'Comic'];
 
   final _title = TextEditingController();
-  String _genre = 'Dram';
-  String _setting = 'İzmir villası';
+  String _genre = 'Drama';
+  String _setting = 'Izmir villa';
   final List<TextEditingController> _names = [
     TextEditingController(),
     TextEditingController(),
   ];
-  final List<String> _charRoles = ['Kahraman', 'Gizemli'];
+  final List<String> _charRoles = ['Hero', 'Mysterious'];
 
   @override
   void dispose() {
@@ -980,7 +980,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
   void _addCharacter() {
     setState(() {
       _names.add(TextEditingController());
-      _charRoles.add('Kötü');
+      _charRoles.add('Villain');
     });
   }
 
@@ -997,7 +997,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
     if (_title.text.trim().isEmpty || named < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Dizi adı ve en az 2 karakter adı gerekli.'),
+          content: Text('A series title and at least 2 character names are required.'),
         ),
       );
       return;
@@ -1024,7 +1024,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Yeni dizi',
+        title: const Text('New series',
             style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
@@ -1034,12 +1034,12 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
           TextField(
             controller: _title,
             decoration: const InputDecoration(
-              labelText: 'Dizi adı',
-              hintText: 'Örn. Kırmızı Villa',
+              labelText: 'Series title',
+              hintText: 'e.g. Red Villa',
               border: OutlineInputBorder(),
             ),
           ),
-          _label('Tür'),
+          _label('Genre'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1052,7 +1052,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                 ),
             ],
           ),
-          _label('Mekân'),
+          _label('Setting'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1065,7 +1065,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                 ),
             ],
           ),
-          _label('Karakterler (2–4)'),
+          _label('Characters (2–4)'),
           for (var i = 0; i < _names.length; i++)
             Card(
               color: kCard,
@@ -1078,7 +1078,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                       child: TextField(
                         controller: _names[i],
                         decoration: InputDecoration(
-                          labelText: 'Karakter ${i + 1}',
+                          labelText: 'Character ${i + 1}',
                           border: const OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -1111,7 +1111,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
               child: TextButton.icon(
                 onPressed: _addCharacter,
                 icon: const Icon(Icons.add),
-                label: const Text('Karakter ekle'),
+                label: const Text('Add character'),
               ),
             ),
           const SizedBox(height: 12),
@@ -1127,7 +1127,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Karakterler için referans görseller üretilir ve sen onaylarsın. Gerçek kişi yüzü kullanılmaz.',
+                    'Reference images are generated for the characters and you approve them. Real people\'s faces are not used.',
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
@@ -1139,7 +1139,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
             onPressed: _submit,
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('Sezon planını oluştur'),
+              child: Text('Create season plan'),
             ),
           ),
         ],
@@ -1157,10 +1157,10 @@ class CostPanelScreen extends StatefulWidget {
 }
 
 class _CostPanelScreenState extends State<CostPanelScreen> {
-  static const int _stillCents = 5; // örnek still maliyeti (cent)
+  static const int _stillCents = 5; // sample still-image cost (cents)
   double _budget = 450; // cent
 
-  /// 0-1 knapsack: toplam maliyeti bütçeyi aşmadan önem toplamını maksimize eder.
+  /// 0-1 knapsack: maximizes total importance without exceeding the budget.
   List<bool> _solve(int budget) {
     final n = kScenePlan.length;
     final dp = List.generate(n + 1, (_) => List<int>.filled(budget + 1, 0));
@@ -1227,19 +1227,19 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Maliyet ve bütçe',
+        title: const Text('Cost and budget',
             style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           const Text(
-            'Bütçe arttıkça daha fazla sahne video olur. Seçimi 0-1 knapsack yapar: en dramatik sahneler önce video alır.',
+            'A bigger budget turns more scenes into video. A 0-1 knapsack makes the choice: the most dramatic scenes get video first.',
             style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 16),
           Text(
-            'Bölüm video bütçesi: ${usd(budget)}',
+            'Episode video budget: ${usd(budget)}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           Slider(
@@ -1254,9 +1254,9 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
             spacing: 8,
             children: [
               for (final p in const [
-                (200, 'Düşük'),
-                (450, 'Orta'),
-                (900, 'Yüksek'),
+                (200, 'Low'),
+                (450, 'Medium'),
+                (900, 'High'),
               ])
                 ActionChip(
                   label: Text('${p.$2} ${usd(p.$1)}'),
@@ -1267,15 +1267,15 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              _stat('Video sahne', '$videoCount / ${kScenePlan.length}'),
+              _stat('Video scenes', '$videoCount / ${kScenePlan.length}'),
               const SizedBox(width: 10),
-              _stat('Önem', '$importance / $totalImportance'),
+              _stat('Importance', '$importance / $totalImportance'),
               const SizedBox(width: 10),
-              _stat('Bölüm maliyeti', usd(total)),
+              _stat('Episode cost', usd(total)),
             ],
           ),
           const SizedBox(height: 20),
-          Text('Sahneler',
+          Text('Scenes',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -1302,20 +1302,20 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                         Text(
-                          'önem ${kScenePlan[i].importance} · video ${usd(kScenePlan[i].videoCostCents)}',
+                          'importance ${kScenePlan[i].importance} · video ${usd(kScenePlan[i].videoCostCents)}',
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  pick[i] ? const Tag('VİDEO', kGold) : const Tag('STILL', kGrey),
+                  pick[i] ? const Tag('VIDEO', kGold) : const Tag('STILL', kGrey),
                 ],
               ),
             ),
           const SizedBox(height: 8),
           const Text(
-            'Örnek birim maliyetler, gerçek fiyat değildir. Gerçek uygulamada rakamlar cost_events tablosundan gelir.',
+            'Sample unit costs, not real prices. In the real app the numbers come from the episode_costs view.',
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
@@ -1345,7 +1345,7 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dizilerim',
+        title: const Text('My series',
             style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
@@ -1371,10 +1371,10 @@ class HomeScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Oylama açık',
+                          const Text('Voting open',
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           Text(
-                            '${vs.title} · Bölüm ${ve.number} sonrası',
+                            '${vs.title} · after episode ${ve.number}',
                             style: const TextStyle(color: Colors.white70),
                           ),
                         ],
@@ -1386,14 +1386,14 @@ class HomeScreen extends StatelessWidget {
                         seriesTitle: vs.title,
                         nextEpisode: ve.number + 1,
                       ),
-                      child: const Text('Oy ver'),
+                      child: const Text('Vote'),
                     ),
                   ],
                 ),
               ),
             ),
           Text(
-            'Dizilerin',
+            'Your series',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -1443,17 +1443,17 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Dizilerim',
+            label: 'My series',
           ),
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),
             selectedIcon: Icon(Icons.add_circle),
-            label: 'Oluştur',
+            label: 'Create',
           ),
           NavigationDestination(
             icon: Icon(Icons.savings_outlined),
             selectedIcon: Icon(Icons.savings),
-            label: 'Maliyet',
+            label: 'Cost',
           ),
         ],
       ),
@@ -1510,7 +1510,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Yapay zekâ ile kendi dizini yaz.\nİzleyiciler bir sonraki bölümü seçsin.',
+                  'Write your own series with AI.\nLet viewers pick the next episode.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
@@ -1519,7 +1519,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'E-posta',
+                    labelText: 'Email',
                     prefixIcon: Icon(Icons.mail_outline),
                     border: OutlineInputBorder(),
                   ),
@@ -1529,7 +1529,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _pass,
                   obscureText: _hide,
                   decoration: InputDecoration(
-                    labelText: 'Şifre',
+                    labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
@@ -1545,7 +1545,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
                   title: const Text(
-                    'Gizlilik bildirimini okudum, verilerimin işlenmesini onaylıyorum (KVKK).',
+                    'I have read the privacy notice and consent to the processing of my data (KVKK).',
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
@@ -1554,16 +1554,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _consent ? _enter : null,
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Giriş yap'),
+                    child: Text('Sign in'),
                   ),
                 ),
                 TextButton(
                   onPressed: _enter,
-                  child: const Text('Misafir olarak izle'),
+                  child: const Text('Browse as guest'),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Hesabını istediğin zaman silebilirsin.',
+                  'You can delete your account at any time.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),

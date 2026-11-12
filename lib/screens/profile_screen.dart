@@ -69,7 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _saving = true);
     try {
       await Repo.updateDisplayName(_name.text.trim());
-      if (mounted) _snack('Görünen ad kaydedildi.');
+      if (mounted) _snack('Display name saved.');
     } catch (e) {
       if (mounted) _snack(errText(e));
     } finally {
@@ -92,19 +92,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hesabı sil'),
+        title: const Text('Delete account'),
         content: const Text(
-          'Hesabın, dizilerin, karakterlerin ve oyların kalıcı olarak silinir. Bu işlem geri alınamaz.',
+          'Your account, series, characters and votes will be permanently deleted. This cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Vazgeç'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Evet, sil'),
+            child: const Text('Yes, delete'),
           ),
         ],
       ),
@@ -120,7 +120,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _consentText() {
     final raw = _profile?['consent_at'];
-    if (raw == null) return 'Onay kaydı yok';
+    if (raw == null) return 'No consent on record';
     final d = DateTime.parse(raw as String).toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(d.day)}.${two(d.month)}.${d.year} ${two(d.hour)}:${two(d.minute)}';
@@ -163,12 +163,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil',
+        title: const Text('Profile',
             style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           if (Repo.signedIn)
             IconButton(
-              tooltip: 'Yenile',
+              tooltip: 'Refresh',
               icon: const Icon(Icons.refresh),
               onPressed: _load,
             ),
@@ -189,13 +189,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Icon(Icons.person_outline, size: 48, color: kGrey),
               const SizedBox(height: 12),
               const Text(
-                'Misafir olarak geziyorsun.\nDizi oluşturmak ve oy vermek için giriş yap.',
+                'You are browsing as a guest.\nSign in to create series and vote.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 16),
               FilledButton(
-                  onPressed: _goLogin, child: const Text('Giriş yap / Kayıt ol')),
+                  onPressed: _goLogin, child: const Text('Sign in / Sign up')),
             ],
           ),
         ),
@@ -209,9 +209,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Profil yüklenemedi:\n$_error', textAlign: TextAlign.center),
+              Text('Could not load profile:\n$_error', textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _load, child: const Text('Tekrar dene')),
+              FilledButton(onPressed: _load, child: const Text('Try again')),
             ],
           ),
         ),
@@ -236,12 +236,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        _card('Hesap', [
-          _row('E-posta', Repo.email ?? '-'),
+        _card('Account', [
+          _row('Email', Repo.email ?? '-'),
           TextField(
             controller: _name,
             decoration: const InputDecoration(
-              labelText: 'Görünen ad',
+              labelText: 'Display name',
               border: OutlineInputBorder(),
               isDense: true,
             ),
@@ -257,22 +257,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
-                  : const Text('Kaydet'),
+                  : const Text('Save'),
             ),
           ),
         ]),
-        _card('Verilerim ve gizlilik (KVKK)', [
-          _row('KVKK onayı', _consentText()),
-          _row('Dizilerim', '$_seriesCount'),
+        _card('My data and privacy (KVKK)', [
+          _row('KVKK consent', _consentText()),
+          _row('My series', '$_seriesCount'),
           const Text(
-            'Yalnızca e-posta ve görünen adın saklanır. Hesabını sildiğinde dizilerin, karakterlerin ve oyların da silinir.',
+            'Only your email and display name are stored. Deleting your account also deletes your series, characters and votes.',
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ]),
         OutlinedButton.icon(
           onPressed: _signOut,
           icon: const Icon(Icons.logout),
-          label: const Text('Çıkış yap'),
+          label: const Text('Sign out'),
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(
@@ -282,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           onPressed: _deleteAccount,
           icon: const Icon(Icons.delete_forever),
-          label: const Text('Hesabımı sil'),
+          label: const Text('Delete my account'),
         ),
         const SizedBox(height: 24),
       ],

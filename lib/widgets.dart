@@ -5,13 +5,13 @@ import 'theme.dart';
 String statusLabel(EpisodeStatus s) {
   switch (s) {
     case EpisodeStatus.published:
-      return 'Yayında';
+      return 'Published';
     case EpisodeStatus.voting:
-      return 'Oylamada';
+      return 'Voting';
     case EpisodeStatus.rendering:
-      return 'Üretiliyor';
+      return 'Generating';
     case EpisodeStatus.locked:
-      return 'Kilitli';
+      return 'Locked';
   }
 }
 
@@ -131,7 +131,7 @@ class SeriesCard extends StatelessWidget {
                           child: CharacterAvatar(c, radius: 14),
                         ),
                       const Spacer(),
-                      Text('$published bölüm yayında',
+                      Text('$published episodes published',
                           style: const TextStyle(color: Colors.white70)),
                     ],
                   ),

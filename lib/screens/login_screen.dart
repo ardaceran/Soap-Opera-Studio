@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _email.text.trim();
     final pass = _pass.text;
     if (email.isEmpty || pass.length < 6) {
-      _snack('E-posta gir ve en az 6 karakterli bir şifre yaz.');
+      _snack('Enter an email and a password of at least 6 characters.');
       return;
     }
     setState(() => _busy = true);
@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!hasSession) {
           if (mounted) {
             setState(() => _signup = false);
-            _snack('Kayıt oluştu. E-postandaki onay linkine tıkla, sonra giriş yap.');
+            _snack('Account created. Click the confirmation link in your email, then sign in.');
           }
           return;
         }
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Yapay zekâ ile kendi dizini yaz.\nİzleyiciler bir sonraki bölümü seçsin.',
+                  'Write your own series with AI.\nLet viewers pick the next episode.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'E-posta',
+                    labelText: 'Email',
                     prefixIcon: Icon(Icons.mail_outline),
                     border: OutlineInputBorder(),
                   ),
@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _pass,
                   obscureText: _hide,
                   decoration: InputDecoration(
-                    labelText: 'Şifre (en az 6 karakter)',
+                    labelText: 'Password (at least 6 characters)',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Gizlilik bildirimini okudum, verilerimin işlenmesini onaylıyorum (KVKK).',
+                      'I have read the privacy notice and consent to the processing of my data (KVKK).',
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
@@ -138,22 +138,22 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2.5),
                           )
-                        : Text(_signup ? 'Kayıt ol' : 'Giriş yap'),
+                        : Text(_signup ? 'Sign up' : 'Sign in'),
                   ),
                 ),
                 TextButton(
                   onPressed: _busy ? null : () => setState(() => _signup = !_signup),
                   child: Text(_signup
-                      ? 'Zaten hesabın var mı? Giriş yap'
-                      : 'Hesabın yok mu? Kayıt ol'),
+                      ? 'Already have an account? Sign in'
+                      : 'No account yet? Sign up'),
                 ),
                 TextButton(
                   onPressed: _busy ? null : _enter,
-                  child: const Text('Misafir olarak izle'),
+                  child: const Text('Browse as guest'),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Hesabını istediğin zaman silebilirsin.',
+                  'You can delete your account at any time.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),

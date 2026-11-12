@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// Örnek (mock) veri. Gerçek uygulamada bu veriler Supabase'den gelecek.
+// Sample (mock) data. In the real app this comes from Supabase.
 
 class Character {
   const Character(this.name, this.role, this.color);
@@ -14,7 +14,7 @@ enum EpisodeStatus { published, voting, rendering, locked }
 class Episode {
   const Episode(this.number, this.title, this.summary, this.status,
       {this.pollId});
-  final String? pollId; // bölümün sonundaki anket (varsa)
+  final String? pollId; // poll at the end of the episode (if any)
   final int number;
   final String title;
   final String summary;
@@ -37,7 +37,7 @@ class PollInfo {
   });
   final String id;
   final String seriesTitle;
-  final int episodeNumber; // anketin açıldığı bölüm; oy sonraki bölüm için
+  final int episodeNumber; // episode the poll opened on; the vote decides the next episode
   final DateTime closesAt;
   final List<PollOption> options;
 }
@@ -61,69 +61,69 @@ class Series {
   final List<Episode> episodes;
 }
 
-/// Maliyet ekranındaki knapsack örneği için sahne planı.
+/// Scene plan for the knapsack example on the cost screen.
 class ScenePlan {
   const ScenePlan(this.title, this.importance, this.videoCostCents);
   final String title;
-  final int importance; // 1-10 dramatik önem
-  final int videoCostCents; // örnek video maliyeti (cent)
+  final int importance; // 1-10 dramatic importance
+  final int videoCostCents; // sample video cost (cents)
 }
 
 const List<Series> kSeries = [
   Series(
     id: 's1',
-    title: 'Kırmızı Villa',
-    genre: 'Dram · Entrika',
-    setting: 'İzmir, deniz kenarı villası',
+    title: 'Red Villa',
+    genre: 'Drama · Intrigue',
+    setting: 'A seaside villa in Izmir',
     colors: [Color(0xFF8E1B3A), Color(0xFF2A0F1E)],
     characters: [
-      Character('Defne', 'Villanın varisi', Color(0xFFE6B450)),
-      Character('Kerem', 'Gizemli avukat', Color(0xFF5AA9E6)),
-      Character('Nilüfer', 'Üvey anne', Color(0xFFB06AB3)),
+      Character('Defne', 'Heir of the villa', Color(0xFFE6B450)),
+      Character('Kerem', 'Mysterious lawyer', Color(0xFF5AA9E6)),
+      Character('Nilufer', 'Stepmother', Color(0xFFB06AB3)),
     ],
     episodes: [
-      Episode(1, 'Vasiyet', 'Defne babasının vasiyeti için villaya döner.',
+      Episode(1, 'The Will', 'Defne returns to the villa for her father\'s will.',
           EpisodeStatus.published),
-      Episode(2, 'Kapalı Oda', 'Kilitli odada eski bir mektup bulunur.',
+      Episode(2, 'The Locked Room', 'An old letter is found in the locked room.',
           EpisodeStatus.voting),
-      Episode(3, 'Sır', 'Mektubun sahibi ortaya çıkar.',
+      Episode(3, 'The Secret', 'The letter\'s author is revealed.',
           EpisodeStatus.rendering),
-      Episode(4, 'Yüzleşme', 'Aile akşam yemeğinde hesaplaşır.',
+      Episode(4, 'Confrontation', 'The family settles scores at dinner.',
           EpisodeStatus.locked),
-      Episode(5, 'Final', 'Sezonun büyük sırrı açığa çıkar.',
+      Episode(5, 'Finale', 'The season\'s big secret comes out.',
           EpisodeStatus.locked),
     ],
   ),
   Series(
     id: 's2',
-    title: 'Son Vapur',
-    genre: 'Romantik · Dram',
-    setting: 'Karşıyaka iskelesi',
+    title: 'The Last Ferry',
+    genre: 'Romance · Drama',
+    setting: 'Karsiyaka pier',
     colors: [Color(0xFF1B5E8E), Color(0xFF0F1E2A)],
     characters: [
-      Character('Ece', 'Gemi kaptanının kızı', Color(0xFFE6B450)),
-      Character('Barış', 'Genç gazeteci', Color(0xFF4CAF7A)),
+      Character('Ece', 'Ship captain\'s daughter', Color(0xFFE6B450)),
+      Character('Baris', 'Young journalist', Color(0xFF4CAF7A)),
     ],
     episodes: [
-      Episode(1, 'İlk Sefer', 'Ece ve Barış vapurda tanışır.',
+      Episode(1, 'First Voyage', 'Ece and Baris meet on the ferry.',
           EpisodeStatus.published),
-      Episode(2, 'Sis', 'Sisli bir akşam planlar değişir.',
+      Episode(2, 'Fog', 'Plans change on a foggy evening.',
           EpisodeStatus.locked),
-      Episode(3, 'Mektup', 'Eski bir sır iskeleye ulaşır.',
+      Episode(3, 'The Letter', 'An old secret reaches the pier.',
           EpisodeStatus.locked),
     ],
   ),
 ];
 
 const List<ScenePlan> kScenePlan = [
-  ScenePlan('Villa kapısında sürpriz misafir', 6, 90),
-  ScenePlan('Kahvaltı sofrasında gergin bakışlar', 3, 70),
-  ScenePlan('Mektubun bulunması', 8, 110),
-  ScenePlan('Merdivende yüzleşme', 9, 120),
-  ScenePlan('Telefon konuşması', 2, 60),
-  ScenePlan('Bahçede gizli buluşma', 7, 100),
-  ScenePlan('Vasiyetin okunması', 8, 110),
-  ScenePlan('Sessiz akşam yemeği', 3, 70),
-  ScenePlan('Cliffhanger: kapı açılır', 10, 130),
-  ScenePlan('Geçmişe dönüş sahnesi', 5, 90),
+  ScenePlan('Surprise guest at the villa door', 6, 90),
+  ScenePlan('Tense looks at the breakfast table', 3, 70),
+  ScenePlan('The letter is found', 8, 110),
+  ScenePlan('Confrontation on the stairs', 9, 120),
+  ScenePlan('Phone call', 2, 60),
+  ScenePlan('Secret meeting in the garden', 7, 100),
+  ScenePlan('Reading of the will', 8, 110),
+  ScenePlan('Silent dinner', 3, 70),
+  ScenePlan('Cliffhanger: the door opens', 10, 130),
+  ScenePlan('Flashback scene', 5, 90),
 ];

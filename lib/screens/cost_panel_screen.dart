@@ -11,10 +11,10 @@ class CostPanelScreen extends StatefulWidget {
 }
 
 class _CostPanelScreenState extends State<CostPanelScreen> {
-  static const int _stillCents = 5; // örnek still maliyeti (cent)
+  static const int _stillCents = 5; // sample still-image cost (cents)
   double _budget = 450; // cent
 
-  /// 0-1 knapsack: toplam maliyeti bütçeyi aşmadan önem toplamını maksimize eder.
+  /// 0-1 knapsack: maximizes total importance without exceeding the budget.
   List<bool> _solve(int budget) {
     final n = kScenePlan.length;
     final dp = List.generate(n + 1, (_) => List<int>.filled(budget + 1, 0));
@@ -81,19 +81,19 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Maliyet ve bütçe',
+        title: const Text('Cost and budget',
             style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           const Text(
-            'Bütçe arttıkça daha fazla sahne video olur. Seçimi 0-1 knapsack yapar: en dramatik sahneler önce video alır.',
+            'A bigger budget turns more scenes into video. A 0-1 knapsack makes the choice: the most dramatic scenes get video first.',
             style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 16),
           Text(
-            'Bölüm video bütçesi: ${usd(budget)}',
+            'Episode video budget: ${usd(budget)}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           Slider(
@@ -108,9 +108,9 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
             spacing: 8,
             children: [
               for (final p in const [
-                (200, 'Düşük'),
-                (450, 'Orta'),
-                (900, 'Yüksek'),
+                (200, 'Low'),
+                (450, 'Medium'),
+                (900, 'High'),
               ])
                 ActionChip(
                   label: Text('${p.$2} ${usd(p.$1)}'),
@@ -121,15 +121,15 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              _stat('Video sahne', '$videoCount / ${kScenePlan.length}'),
+              _stat('Video scenes', '$videoCount / ${kScenePlan.length}'),
               const SizedBox(width: 10),
-              _stat('Önem', '$importance / $totalImportance'),
+              _stat('Importance', '$importance / $totalImportance'),
               const SizedBox(width: 10),
-              _stat('Bölüm maliyeti', usd(total)),
+              _stat('Episode cost', usd(total)),
             ],
           ),
           const SizedBox(height: 20),
-          Text('Sahneler',
+          Text('Scenes',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -156,20 +156,20 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                         Text(
-                          'önem ${kScenePlan[i].importance} · video ${usd(kScenePlan[i].videoCostCents)}',
+                          'importance ${kScenePlan[i].importance} · video ${usd(kScenePlan[i].videoCostCents)}',
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  pick[i] ? const Tag('VİDEO', kGold) : const Tag('STILL', kGrey),
+                  pick[i] ? const Tag('VIDEO', kGold) : const Tag('STILL', kGrey),
                 ],
               ),
             ),
           const SizedBox(height: 8),
           const Text(
-            'Örnek birim maliyetler, gerçek fiyat değildir. Gerçek uygulamada rakamlar cost_events tablosundan gelir.',
+            'Sample unit costs, not real prices. In the real app the numbers come from the episode_costs view.',
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],

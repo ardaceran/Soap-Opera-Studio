@@ -11,19 +11,19 @@ class _PlayerScene {
   final List<Color> colors;
 }
 
-// Örnek sahneler. Gerçekte her sahne bir Flux görseli / video klibi + ses olacak.
+// Sample scenes. In the real app each scene is a Flux image / video clip plus audio.
 const List<_PlayerScene> _scenes = [
-  _PlayerScene('Defne', 'Babamın vasiyeti bu odada okunacak.',
+  _PlayerScene('Defne', 'My father\'s will will be read in this room.',
       [Color(0xFF8E1B3A), Color(0xFF2A0F1E)]),
-  _PlayerScene('Nilüfer', 'Bu villa yıllardır benim evim.',
+  _PlayerScene('Nilufer', 'This villa has been my home for years.',
       [Color(0xFF6A2C70), Color(0xFF1A0F22)]),
-  _PlayerScene('Kerem', 'Mektubu kimse bulmamalıydı.',
+  _PlayerScene('Kerem', 'Nobody was supposed to find the letter.',
       [Color(0xFF1B5E8E), Color(0xFF0F1E2A)]),
-  _PlayerScene('Defne', 'Demek her şeyi biliyordun.',
+  _PlayerScene('Defne', 'So you knew everything all along.',
       [Color(0xFF8E1B3A), Color(0xFF3A1A0A)]),
-  _PlayerScene('Nilüfer', 'Gece yarısı bahçede görüşelim.',
+  _PlayerScene('Nilufer', 'Meet me in the garden at midnight.',
       [Color(0xFF2A4A3A), Color(0xFF0F1A14)]),
-  _PlayerScene('Anlatıcı', 'Kapı yavaşça açıldı...',
+  _PlayerScene('Narrator', 'The door slowly opened...',
       [Color(0xFF111111), Color(0xFF8E1B3A)]),
 ];
 
@@ -83,7 +83,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
     if (pid == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text(
-            'Bu örnek bölümün gerçek bir anketi yok. Diziler sekmesindeki anket bandından oy verebilirsin.'),
+            'This sample episode has no real poll. You can vote from the poll banner on the Series tab.'),
       ));
     } else {
       try {
@@ -124,7 +124,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Ken Burns: sabit görsel üzerinde yavaş yakınlaşma
+                        // Ken Burns: slow zoom on a still image
                         Transform.scale(
                           scale: 1.0 + 0.12 * local,
                           child: DecoratedBox(
@@ -144,7 +144,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                             ),
                           ),
                         ),
-                        // sahne ilerleme çubukları
+                        // scene progress bars
                         Positioned(
                           top: 12,
                           left: 12,
@@ -178,7 +178,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                                   size: 14, color: kGold),
                               const SizedBox(width: 4),
                               Text(
-                                'AI ile üretildi · ${widget.series.title} B${widget.episode.number}',
+                                'AI-generated · ${widget.series.title} E${widget.episode.number}',
                                 style: const TextStyle(
                                     fontSize: 12, color: Colors.white70),
                               ),
@@ -193,7 +193,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ),
-                        // altyazı
+                        // caption
                         Positioned(
                           left: 24,
                           right: 24,
@@ -232,7 +232,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                           child: FilledButton.icon(
                             onPressed: _openVote,
                             icon: const Icon(Icons.how_to_vote),
-                            label: const Text('Sonraki bölüm için oy ver'),
+                            label: const Text('Vote for the next episode'),
                           ),
                         ),
                         if (_paused)

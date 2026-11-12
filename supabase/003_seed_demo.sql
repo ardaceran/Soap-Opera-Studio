@@ -1,6 +1,6 @@
--- Örnek veri: "Kırmızı Villa" dizisi, 2 yayınlanmış bölüm ve açık bir anket.
--- Supabase SQL Editor'da çalıştır. ÖNCE uygulamadan en az bir hesap oluşturmuş olmalısın
--- (dizi, ilk kayıtlı kullanıcıya bağlanır). Tekrar çalıştırırsan ikinci kopya oluşmaz.
+-- Sample data: the "Red Villa" series, 2 published episodes and an open poll.
+-- Run in the Supabase SQL Editor. You must have created at least one account in the app FIRST
+-- (the series is attached to the first registered user). Running it again will not create a second copy.
 do $$
 declare
   uid uuid;
@@ -10,25 +10,25 @@ declare
 begin
   select id into uid from public.profiles order by created_at limit 1;
   if uid is null then
-    raise exception 'Önce uygulamadan bir hesap oluştur, sonra bunu çalıştır.';
+    raise exception 'Create an account in the app first, then run this.';
   end if;
-  if exists (select 1 from public.series where title = 'Kırmızı Villa (örnek)') then
-    raise notice 'Örnek veri zaten var.';
+  if exists (select 1 from public.series where title = 'Red Villa (sample)') then
+    raise notice 'Sample data already exists.';
     return;
   end if;
 
   insert into public.series (owner_id, title, genre, setting)
-  values (uid, 'Kırmızı Villa (örnek)', 'Dram', 'Boğaz''da eski bir yalı')
+  values (uid, 'Red Villa (sample)', 'Drama', 'An old waterside mansion on the Bosphorus')
   returning id into sid;
 
   insert into public.characters (series_id, name, role) values
-    (sid, 'Defne', 'Yalının varisi'),
-    (sid, 'Kerem', 'Gizemli kâhya'),
-    (sid, 'Nermin', 'Defne''nin teyzesi');
+    (sid, 'Defne', 'Heir of the mansion'),
+    (sid, 'Kerem', 'Mysterious steward'),
+    (sid, 'Nermin', 'Defne''s aunt');
 
   insert into public.episodes (series_id, number, title, summary, status, published_at) values
-    (sid, 1, 'Miras', 'Defne yalıya döner ve vasiyeti okunur.', 'published', now()),
-    (sid, 2, 'Kilitli Oda', 'Kerem''in sakladığı oda ortaya çıkar.', 'published', now());
+    (sid, 1, 'Inheritance', 'Defne returns to the mansion and the will is read.', 'published', now()),
+    (sid, 2, 'The Locked Room', 'The room Kerem has been hiding is revealed.', 'published', now());
 
   select id into eid from public.episodes where series_id = sid and number = 2;
 
@@ -36,7 +36,7 @@ begin
   values (eid, now() + interval '7 days') returning id into pid;
 
   insert into public.poll_options (poll_id, label) values
-    (pid, 'Defne kilitli odayı açar'),
-    (pid, 'Kerem sırrı itiraf eder'),
-    (pid, 'Nermin vasiyeti yırtar');
+    (pid, 'Defne opens the locked room'),
+    (pid, 'Kerem confesses the secret'),
+    (pid, 'Nermin tears up the will');
 end $$;

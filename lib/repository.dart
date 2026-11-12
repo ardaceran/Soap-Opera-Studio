@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data.dart';
 
-/// Hata nesnesini kullanıcıya gösterilecek kısa metne çevirir.
+/// Turns an error object into a short message for the user.
 String errText(Object e) {
   if (e is AuthException) return e.message;
   if (e is PostgrestException) return e.message;
   return e.toString().replaceFirst('Exception: ', '');
 }
 
-/// Tüm Supabase erişimi burada toplanır; ekranlar doğrudan Supabase'e dokunmaz.
+/// All Supabase access lives here; screens never touch Supabase directly.
 class Repo {
   static SupabaseClient get _db => Supabase.instance.client;
 
@@ -17,7 +17,7 @@ class Repo {
 
   // ------------------------------------------------------------------ auth
 
-  /// true dönerse oturum açıldı; false ise e-posta onayı bekleniyor.
+  /// true: signed in; false: waiting for email confirmation.
   static Future<bool> signUp(String email, String password) async {
     final res = await _db.auth.signUp(email: email, password: password);
     return res.session != null;
@@ -29,7 +29,7 @@ class Repo {
 
   static Future<void> signOut() => _db.auth.signOut();
 
-  /// KVKK onay zamanını profile yazar.
+  /// Writes the KVKK consent time to the profile.
   static Future<void> saveConsent() async {
     final user = _db.auth.currentUser;
     if (user == null) return;
@@ -62,13 +62,13 @@ class Repo {
     return rows.length;
   }
 
-  /// Hesabı ve tüm verilerini kalıcı siler (supabase/002_delete_account.sql gerekir).
+  /// Permanently deletes the account and all its data (needs supabase/002_delete_account.sql).
   static Future<void> deleteAccount() async {
     await _db.rpc('delete_my_account');
     try {
       await _db.auth.signOut();
     } catch (_) {
-      // Kullanıcı zaten silindi; yerel oturumu temizlemek yeterli.
+      // The user is already deleted; clearing the local session is enough.
     }
   }
 
@@ -83,10 +83,13 @@ class Repo {
 
   static List<Color> _seriesColors(String genre) {
     switch (genre) {
+      case 'Romance':
       case 'Romantik':
         return const [Color(0xFF1B5E8E), Color(0xFF0F1E2A)];
+      case 'Thriller':
       case 'Gerilim':
         return const [Color(0xFF2A4A3A), Color(0xFF0F1A14)];
+      case 'Comedy':
       case 'Komedi':
         return const [Color(0xFFB5651D), Color(0xFF2A1A0A)];
       default:
@@ -106,7 +109,7 @@ class Repo {
   }
 
   static Episode _episodeFrom(Map<String, dynamic> e) {
-    // Bölümün anketi: tekil nesne ya da liste olarak gelebilir.
+    // The episode's poll: may arrive as a single object or a list.
     Map<String, dynamic>? poll;
     final raw = e['polls'];
     if (raw is Map) {
@@ -121,7 +124,7 @@ class Repo {
     }
     return Episode(
       e['number'] as int,
-      (e['title'] ?? 'Bölüm ${e['number']}') as String,
+      (e['title'] ?? 'Episode ${e['number']}') as String,
       (e['summary'] ?? '') as String,
       status,
       pollId: poll?['id'] as String?,
@@ -156,7 +159,7 @@ class Repo {
     );
   }
 
-  /// Görünür tüm diziler: kullanıcının kendileri + yayınlanmış bölümü olanlar (RLS belirler).
+  /// All visible series: the user's own plus those with published episodes (decided by RLS).
   static Future<List<Series>> fetchSeries() async {
     final rows = await _db
         .from('series')
@@ -173,7 +176,7 @@ class Repo {
     required List<String> roles,
   }) async {
     final user = _db.auth.currentUser;
-    if (user == null) throw Exception('Önce giriş yapmalısın.');
+    if (user == null) throw Exception('You need to sign in first.');
 
     final s = await _db
         .from('series')
@@ -212,7 +215,7 @@ class Repo {
     );
   }
 
-  /// Şu an açık olan anketler.
+  /// Polls that are open right now.
   static Future<List<PollInfo>> fetchOpenPolls() async {
     final rows = await _db
         .from('polls')
@@ -227,7 +230,7 @@ class Repo {
     return _pollFrom(r);
   }
 
-  /// seçenek id -> oy sayısı
+  /// option id -> vote count
   static Future<Map<String, int>> fetchPollResults(String pollId) async {
     final rows = await _db
         .from('poll_results')
@@ -239,7 +242,7 @@ class Repo {
     };
   }
 
-  /// Kullanıcının bu ankette verdiği seçenek (yoksa null).
+  /// The option the user picked in this poll (null if none).
   static Future<String?> myVote(String pollId) async {
     final user = _db.auth.currentUser;
     if (user == null) return null;
@@ -254,7 +257,7 @@ class Repo {
 
   static Future<void> castVote(String pollId, String optionId) async {
     final user = _db.auth.currentUser;
-    if (user == null) throw Exception('Oy vermek için giriş yapmalısın.');
+    if (user == null) throw Exception('You need to sign in to vote.');
     try {
       await _db.from('votes').insert({
         'poll_id': pollId,
@@ -263,7 +266,7 @@ class Repo {
       });
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
-        throw Exception('Bu ankette zaten oy kullandın.');
+        throw Exception('You already voted in this poll.');
       }
       rethrow;
     }

@@ -10,16 +10,16 @@ class _Step {
   final String detail;
 }
 
-// Mimarideki 8 adımlı üretim hattı (gerçekte worker yapar, uygulama sadece durumu izler).
+// The 8-step pipeline from the architecture (the worker does the real work; the app only tracks status).
 const List<_Step> _steps = [
-  _Step('Sezon planı', 'Claude sezon arkını ve dizi bible\'ını yazıyor'),
-  _Step('Karakter kilidi', 'Referans görseller üretiliyor'),
-  _Step('Bölüm senaryosu', 'Bağlam çekiliyor, sahneler yazılıyor'),
-  _Step('Moderasyon', 'İçerik kuralları kontrol ediliyor'),
-  _Step('Bütçe kararı', 'Hangi sahneler video olacak? (knapsack)'),
-  _Step('Sahne medyası', 'Görsel, video ve ses üretiliyor'),
-  _Step('Montaj', 'FFmpeg ile 1080×1920 video birleştiriliyor'),
-  _Step('Yayın', 'Bölüm yayınlanıyor, oylama açılıyor'),
+  _Step('Season plan', 'Claude is writing the season arc and series bible'),
+  _Step('Character lock', 'Generating reference images'),
+  _Step('Episode script', 'Retrieving context, writing scenes'),
+  _Step('Moderation', 'Checking content rules'),
+  _Step('Budget decision', 'Which scenes become video? (knapsack)'),
+  _Step('Scene media', 'Generating images, video and audio'),
+  _Step('Assembly', 'Combining the 1080×1920 video with FFmpeg'),
+  _Step('Publish', 'Publishing the episode, opening the vote'),
 ];
 
 class GenerationStatusScreen extends StatefulWidget {
@@ -76,7 +76,7 @@ class _GenerationStatusScreenState extends State<GenerationStatusScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            finished ? 'Bölüm 1 hazır' : 'Üretim sürüyor...',
+            finished ? 'Episode 1 ready' : 'Generating...',
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
@@ -118,11 +118,11 @@ class _GenerationStatusScreenState extends State<GenerationStatusScreen> {
                 );
               },
               icon: const Icon(Icons.play_arrow),
-              label: const Text('Bölümü izle'),
+              label: const Text('Watch episode'),
             ),
           const SizedBox(height: 16),
           const Text(
-            'Gerçek uygulamada bu ekran, Supabase Realtime ile jobs tablosunun durumunu dinler. Şimdilik simülasyon.',
+            'In the real app this screen listens to the jobs table through Supabase Realtime. For now it is a simulation.',
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
