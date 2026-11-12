@@ -82,7 +82,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
     }
     setState(() => _saving = true);
     try {
-      await Repo.createSeries(
+      final id = await Repo.createSeries(
         title: title,
         genre: _genre,
         setting: _setting,
@@ -93,7 +93,7 @@ class _CreateSeriesScreenState extends State<CreateSeriesScreen> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => GenerationStatusScreen(title: title),
+          builder: (_) => GenerationStatusScreen(seriesId: id, title: title),
         ),
       );
     } catch (e) {

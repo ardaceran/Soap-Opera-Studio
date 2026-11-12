@@ -1,29 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data.dart';
+import '../repository.dart';
 import '../theme.dart';
-import 'episode_player_screen.dart';
 
-class _Step {
-  const _Step(this.title, this.detail);
-  final String title;
-  final String detail;
-}
-
-// The 8-step pipeline from the architecture (the worker does the real work; the app only tracks status).
-const List<_Step> _steps = [
-  _Step('Season plan', 'Claude is writing the season arc and series bible'),
-  _Step('Character lock', 'Generating reference images'),
-  _Step('Episode script', 'Retrieving context, writing scenes'),
-  _Step('Moderation', 'Checking content rules'),
-  _Step('Budget decision', 'Which scenes become video? (knapsack)'),
-  _Step('Scene media', 'Generating images, video and audio'),
-  _Step('Assembly', 'Combining the 1080×1920 video with FFmpeg'),
-  _Step('Publish', 'Publishing the episode, opening the vote'),
-];
-
+/// Shows the real generation jobs of a series from the `jobs` table.
+/// Refreshes every 3 seconds while the screen is open.
 class GenerationStatusScreen extends StatefulWidget {
-  const GenerationStatusScreen({super.key, required this.title});
+  const GenerationStatusScreen(
+      {super.key, required this.seriesId, required this.title});
+  final String seriesId;
   final String title;
 
   @override
@@ -31,20 +17,25 @@ class GenerationStatusScreen extends StatefulWidget {
 }
 
 class _GenerationStatusScreenState extends State<GenerationStatusScreen> {
-  int _done = 0;
+  List<JobInfo>? _jobs;
+  String? _error;
   Timer? _timer;
+
+  static const Map<String, String> _names = {
+    'season_plan': 'Season plan',
+    'script': 'Episode script',
+    'moderation': 'Moderation',
+    'image': 'Scene images',
+    'video': 'Key-moment video',
+    'voice': 'Voice',
+    'assemble': 'Assembly (FFmpeg)',
+  };
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 1100), (t) {
-      if (!mounted) return;
-      if (_done >= _steps.length) {
-        t.cancel();
-        return;
-      }
-      setState(() => _done++);
-    });
+    _load();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) => _load());
   }
 
   @override
@@ -53,78 +44,93 @@ class _GenerationStatusScreenState extends State<GenerationStatusScreen> {
     super.dispose();
   }
 
-  Widget _icon(int i) {
-    if (i < _done) {
-      return const Icon(Icons.check_circle, color: kGold);
+  Future<void> _load() async {
+    try {
+      final jobs = await Repo.fetchSeriesJobs(widget.seriesId);
+      if (!mounted) return;
+      setState(() {
+        _jobs = jobs;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = errText(e));
     }
-    if (i == _done) {
-      return const SizedBox(
-        width: 22,
-        height: 22,
-        child: CircularProgressIndicator(strokeWidth: 2.5),
-      );
+  }
+
+  Widget _icon(String status) {
+    switch (status) {
+      case 'done':
+        return const Icon(Icons.check_circle, color: kGreen);
+      case 'running':
+        return const SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        );
+      case 'failed':
+        return Icon(Icons.error, color: Colors.red.shade300);
+      default:
+        return const Icon(Icons.schedule, color: kGrey);
     }
-    return const Icon(Icons.circle_outlined, color: kGrey);
   }
 
   @override
   Widget build(BuildContext context) {
-    final finished = _done >= _steps.length;
+    final jobs = _jobs;
+    final waiting =
+        jobs != null && jobs.isNotEmpty && jobs.every((j) => j.status == 'queued');
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            finished ? 'Episode 1 ready' : 'Generating...',
+            'Series saved',
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: _done / _steps.length,
-            minHeight: 6,
-            backgroundColor: Colors.white12,
-            color: kGold,
+          const SizedBox(height: 6),
+          const Text(
+            'Generation jobs for this series, live from the database.',
+            style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 20),
-          for (var i = 0; i < _steps.length; i++)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: _icon(i),
-              title: Text(
-                _steps[i].title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: i <= _done ? Colors.white : Colors.white54,
+          if (_error != null)
+            Text('Could not load jobs: $_error',
+                style: TextStyle(color: Colors.red.shade300))
+          else if (jobs == null)
+            const Center(child: CircularProgressIndicator())
+          else if (jobs.isEmpty)
+            const Text('No generation jobs yet.',
+                style: TextStyle(color: Colors.white54))
+          else
+            for (final j in jobs)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: _icon(j.status),
+                title: Text(
+                  '${_names[j.type] ?? j.type}'
+                  '${j.episodeNumber != null ? ' · episode ${j.episodeNumber}' : ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
+                subtitle: Text(j.error ?? j.status),
               ),
-              subtitle: Text(_steps[i].detail),
+          if (waiting) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kCard,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Waiting for the generation worker. Jobs stay queued until the worker is running.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
             ),
-          const SizedBox(height: 12),
-          if (finished)
-            FilledButton.icon(
-              onPressed: () {
-                final s = kSeries.first;
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => EpisodePlayerScreen(
-                      series: s,
-                      episode: s.episodes.first,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Watch episode'),
-            ),
-          const SizedBox(height: 16),
-          const Text(
-            'In the real app this screen listens to the jobs table through Supabase Realtime. For now it is a simulation.',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          ],
         ],
       ),
     );

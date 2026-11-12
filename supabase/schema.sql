@@ -108,7 +108,8 @@ create table public.votes (
 -- Generation queue. Cost is stored here too: episode cost = sum of its jobs.
 create table public.jobs (
   id          uuid primary key default gen_random_uuid(),
-  episode_id  uuid not null references public.episodes (id) on delete cascade,
+  series_id   uuid not null references public.series (id) on delete cascade,
+  episode_id  uuid references public.episodes (id) on delete cascade,  -- null for season_plan
   scene_id    uuid references public.scenes (id) on delete cascade,
   type        text not null
               check (type in ('season_plan', 'script', 'moderation', 'image', 'video', 'voice', 'assemble')),
@@ -123,6 +124,7 @@ create table public.jobs (
   updated_at  timestamptz not null default now()
 );
 create index jobs_queue_idx on public.jobs (status, created_at);
+create index jobs_series_idx on public.jobs (series_id);
 
 -- ---------------------------------------------------------------- helpers
 
@@ -130,8 +132,13 @@ create index jobs_queue_idx on public.jobs (status, created_at);
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)));
+  -- KVKK consent comes from the sign-up metadata ({"kvkk_consent": true}).
+  insert into public.profiles (id, display_name, consent_at)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)),
+    case when (new.raw_user_meta_data ->> 'kvkk_consent') = 'true' then now() end
+  );
   return new;
 end $$;
 
@@ -166,10 +173,13 @@ create or replace view public.episode_costs with (security_invoker = true) as
     left join public.jobs j on j.episode_id = e.id
    group by e.id;
 
--- Live vote counts (without revealing who voted). The view runs as its owner.
+-- Live vote counts (without revealing who voted), only for published episodes.
+-- The view runs as its owner.
 create or replace view public.poll_results as
   select o.poll_id, o.id as option_id, o.label, count(v.user_id) as votes
     from public.poll_options o
+    join public.polls p    on p.id = o.poll_id
+    join public.episodes e on e.id = p.episode_id and e.status = 'published'
     left join public.votes v on v.option_id = o.id
    group by o.id;
 grant select on public.poll_results to anon, authenticated;
@@ -244,9 +254,7 @@ create policy votes_select_own on public.votes for select using (user_id = auth.
 
 -- jobs: the series owner can watch the jobs of their own episodes (Realtime status screen)
 create policy jobs_owner_read on public.jobs for select
-  using (exists (select 1 from public.episodes e
-                   join public.series s on s.id = e.series_id
-                  where e.id = episode_id and s.owner_id = auth.uid()));
+  using (public.is_series_owner(series_id));
 
 -- ---------------------------------------------------------------- storage
 insert into storage.buckets (id, name, public) values
@@ -265,4 +273,40 @@ create policy refs_owner_all on storage.objects for all
 alter publication supabase_realtime add table public.jobs;
 alter publication supabase_realtime add table public.votes;
 
--- Account deletion function: also in supabase/002_delete_account.sql (to add to an existing project).
+-- Account deletion function: run supabase/002_delete_account.sql after this file.
+
+-- ---------------------------------------------------------------- rpc
+Create a series, its characters and the first generation job in ONE
+--    transaction, so a failure never leaves a half-saved series.
+create or replace function public.create_series(
+  p_title text, p_genre text, p_setting text, p_characters jsonb)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  sid uuid;
+  n   int := jsonb_array_length(coalesce(p_characters, '[]'::jsonb));
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if coalesce(trim(p_title), '') = '' then
+    raise exception 'A series title is required';
+  end if;
+  if n < 2 or n > 4 then
+    raise exception 'A series needs 2 to 4 characters';
+  end if;
+
+  insert into public.series (owner_id, title, genre, setting)
+  values (auth.uid(), trim(p_title), p_genre, p_setting)
+  returning id into sid;
+
+  insert into public.characters (series_id, name, role)
+  select sid, trim(c ->> 'name'), c ->> 'role'
+    from jsonb_array_elements(p_characters) c;
+
+  -- The worker picks this up and writes the season plan.
+  insert into public.jobs (series_id, type) values (sid, 'season_plan');
+
+  return sid;
+end $$;
+revoke all on function public.create_series(text, text, text, jsonb) from public, anon;
+grant execute on function public.create_series(text, text, text, jsonb) to authenticated;

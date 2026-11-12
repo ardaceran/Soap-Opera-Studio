@@ -53,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
           }
           return;
         }
-        await Repo.saveConsent();
       } else {
         await Repo.signIn(email, pass);
       }

@@ -126,15 +126,19 @@ class HomeScreenState extends State<HomeScreen> {
           }
           final list = snap.data ?? const <Series>[];
           if (list.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No series yet.\nCreate your first one from the Create tab.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _pollBanner(),
+                const Padding(
+                  padding: EdgeInsets.only(top: 80),
+                  child: Text(
+                    'No series yet.\nCreate your first one from the Create tab.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ),
-              ),
+              ],
             );
           }
           return ListView(

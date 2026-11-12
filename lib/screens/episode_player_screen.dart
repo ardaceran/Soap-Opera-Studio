@@ -11,22 +11,6 @@ class _PlayerScene {
   final List<Color> colors;
 }
 
-// Sample scenes. In the real app each scene is a Flux image / video clip plus audio.
-const List<_PlayerScene> _scenes = [
-  _PlayerScene('Defne', 'My father\'s will will be read in this room.',
-      [Color(0xFF8E1B3A), Color(0xFF2A0F1E)]),
-  _PlayerScene('Nilufer', 'This villa has been my home for years.',
-      [Color(0xFF6A2C70), Color(0xFF1A0F22)]),
-  _PlayerScene('Kerem', 'Nobody was supposed to find the letter.',
-      [Color(0xFF1B5E8E), Color(0xFF0F1E2A)]),
-  _PlayerScene('Defne', 'So you knew everything all along.',
-      [Color(0xFF8E1B3A), Color(0xFF3A1A0A)]),
-  _PlayerScene('Nilufer', 'Meet me in the garden at midnight.',
-      [Color(0xFF2A4A3A), Color(0xFF0F1A14)]),
-  _PlayerScene('Narrator', 'The door slowly opened...',
-      [Color(0xFF111111), Color(0xFF8E1B3A)]),
-];
-
 class EpisodePlayerScreen extends StatefulWidget {
   const EpisodePlayerScreen({
     super.key,
@@ -45,8 +29,9 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
   late final AnimationController _c;
   bool _paused = false;
   bool _voteShown = false;
-  bool _loading = false;
-  List<_PlayerScene> _list = _scenes; // mock scenes until real ones load
+  bool _loading = true;
+  String? _error;
+  List<_PlayerScene> _list = const [];
 
   static const List<List<Color>> _palette = [
     [Color(0xFF8E1B3A), Color(0xFF2A0F1E)],
@@ -69,18 +54,18 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
   Future<void> _loadScenes(String id) async {
     try {
       final rows = await Repo.fetchScenes(id);
-      if (rows.isNotEmpty) {
-        _list = [
-          for (var i = 0; i < rows.length; i++) _fromRow(i, rows[i].dialogue),
-        ];
-      }
-    } catch (_) {
-      // Keep the mock scenes if loading fails.
+      _list = [
+        for (var i = 0; i < rows.length; i++) _fromRow(i, rows[i].dialogue),
+      ];
+    } catch (e) {
+      _error = errText(e);
     }
     if (!mounted) return;
-    _c.duration = Duration(seconds: _list.length * 4);
     setState(() => _loading = false);
-    _c.forward();
+    if (_list.isNotEmpty) {
+      _c.duration = Duration(seconds: _list.length * 4);
+      _c.forward();
+    }
   }
 
   @override
@@ -88,20 +73,21 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: Duration(seconds: _scenes.length * 4),
+      duration: const Duration(seconds: 4),
     );
     _c.addStatusListener((status) {
-      if (status == AnimationStatus.completed && !_voteShown) {
+      if (status == AnimationStatus.completed &&
+          !_voteShown &&
+          widget.episode.pollId != null) {
         _voteShown = true;
         _openVote();
       }
     });
     final id = widget.episode.id;
     if (id != null) {
-      _loading = true;
       _loadScenes(id);
     } else {
-      _c.forward();
+      _loading = false;
     }
   }
 
@@ -126,7 +112,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
     if (pid == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text(
-            'This sample episode has no real poll. You can vote from the poll banner on the Series tab.'),
+            'This episode has no poll.'),
       ));
     } else {
       try {
@@ -151,6 +137,27 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_list.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          title: Text('${widget.series.title} · E${widget.episode.number}'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              _error != null
+                  ? 'Could not load scenes:\n$_error'
+                  : 'This episode has no scenes yet. They appear here once the episode is generated.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+        ),
       );
     }
     return Scaffold(
@@ -274,6 +281,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
                             ],
                           ),
                         ),
+                        if (widget.episode.pollId != null)
                         Positioned(
                           left: 16,
                           right: 16,

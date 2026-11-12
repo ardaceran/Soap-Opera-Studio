@@ -18,8 +18,13 @@ class Repo {
   // ------------------------------------------------------------------ auth
 
   /// true: signed in; false: waiting for email confirmation.
+  /// The KVKK consent travels as metadata; the database trigger stores its time.
   static Future<bool> signUp(String email, String password) async {
-    final res = await _db.auth.signUp(email: email, password: password);
+    final res = await _db.auth.signUp(
+      email: email,
+      password: password,
+      data: {'kvkk_consent': true},
+    );
     return res.session != null;
   }
 
@@ -28,16 +33,6 @@ class Repo {
   }
 
   static Future<void> signOut() => _db.auth.signOut();
-
-  /// Writes the KVKK consent time to the profile.
-  static Future<void> saveConsent() async {
-    final user = _db.auth.currentUser;
-    if (user == null) return;
-    await _db
-        .from('profiles')
-        .update({'consent_at': DateTime.now().toUtc().toIso8601String()})
-        .eq('id', user.id);
-  }
 
   // --------------------------------------------------------------- profile
 
@@ -169,31 +164,46 @@ class Repo {
     return rows.map<Series>((r) => _fromRow(r)).toList();
   }
 
-  static Future<void> createSeries({
+  /// Saves the series, its characters and the first generation job in one
+  /// transaction (supabase function create_series). Returns the series id.
+  static Future<String> createSeries({
     required String title,
     required String genre,
     required String setting,
     required List<String> names,
     required List<String> roles,
   }) async {
-    final user = _db.auth.currentUser;
-    if (user == null) throw Exception('You need to sign in first.');
+    if (_db.auth.currentUser == null) {
+      throw Exception('You need to sign in first.');
+    }
+    final id = await _db.rpc('create_series', params: {
+      'p_title': title,
+      'p_genre': genre,
+      'p_setting': setting,
+      'p_characters': [
+        for (var i = 0; i < names.length; i++)
+          {'name': names[i], 'role': roles[i]},
+      ],
+    });
+    return id as String;
+  }
 
-    final s = await _db
-        .from('series')
-        .insert({
-          'owner_id': user.id,
-          'title': title,
-          'genre': genre,
-          'setting': setting,
-        })
-        .select()
-        .single();
-
-    await _db.from('characters').insert([
-      for (var i = 0; i < names.length; i++)
-        {'series_id': s['id'], 'name': names[i], 'role': roles[i]},
-    ]);
+  /// Generation jobs of a series, oldest first (only the owner can see them).
+  static Future<List<JobInfo>> fetchSeriesJobs(String seriesId) async {
+    final rows = await _db
+        .from('jobs')
+        .select('type, status, error, episodes(number)')
+        .eq('series_id', seriesId)
+        .order('created_at');
+    return [
+      for (final r in rows)
+        JobInfo(
+          type: r['type'] as String,
+          status: r['status'] as String,
+          error: r['error'] as String?,
+          episodeNumber: (r['episodes'] as Map?)?['number'] as int?,
+        ),
+    ];
   }
 
   // ----------------------------------------------------------------- polls

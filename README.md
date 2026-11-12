@@ -22,11 +22,11 @@ Team: Arda Ceran and Mert.
 | Feature | Status |
 | --- | --- |
 | Sign-in / sign-up, KVKK consent, account deletion | Working (Supabase Auth) |
-| Create and list series and characters | Working (Supabase) |
+| Create and list series and characters | Working (one transaction via the `create_series` function; queues a season-plan job) |
 | Live voting, one vote per user | Working (Supabase) |
-| Episode generation (Claude, images, voice, FFmpeg) | Planned — the app shows a simulated pipeline |
+| Episode generation (Claude, images, voice, FFmpeg) | Planned — the status screen shows the real job queue, which waits for the worker |
 | Episode player | Reads scenes from the database (animated stills + captions); real video planned |
-| Cost per episode | Reads the `episode_costs` view (real data once the worker logs job costs); budget planner is a simulation |
+| Cost per episode | Reads the `episode_costs` view (real data once the worker logs job costs) |
 
 ## Architecture
 
@@ -75,9 +75,12 @@ Build an Android APK: `flutter build apk`.
 
 1. Create a project and run the SQL files in the SQL Editor, in order:
    `supabase/schema.sql`, `supabase/002_delete_account.sql`.
+   An existing project created before this change also needs `supabase/005_fixes.sql`.
 2. Authentication > Providers > Email: turn "Confirm email" off during development.
 3. Put your project URL and **publishable** key in `lib/config.dart`.
-4. Optional sample data: create an account in the app, then run `supabase/003_seed_demo.sql` and `supabase/004_seed_scenes_costs.sql` (the costs in 004 are placeholder demo numbers).
+4. Optional sample data (for testing only): create an account in the app, then run
+   `supabase/003_seed_demo.sql` and `supabase/004_seed_scenes_costs.sql`
+   (the costs in 004 are placeholder numbers, not measured costs).
 
 ### 3. Secrets
 
