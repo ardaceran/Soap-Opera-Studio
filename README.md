@@ -25,8 +25,8 @@ Team: Arda Ceran and Mert.
 | Create and list series and characters | Working (Supabase) |
 | Live voting, one vote per user | Working (Supabase) |
 | Episode generation (Claude, images, voice, FFmpeg) | Planned — the app shows a simulated pipeline |
-| Episode player with real video | Planned — the app plays a mock episode |
-| Cost per episode | Planned — mock screen; data model is ready (`episode_costs` view) |
+| Episode player | Reads scenes from the database (animated stills + captions); real video planned |
+| Cost per episode | Reads the `episode_costs` view (real data once the worker logs job costs); budget planner is a simulation |
 
 ## Architecture
 
@@ -77,7 +77,7 @@ Build an Android APK: `flutter build apk`.
    `supabase/schema.sql`, `supabase/002_delete_account.sql`.
 2. Authentication > Providers > Email: turn "Confirm email" off during development.
 3. Put your project URL and **publishable** key in `lib/config.dart`.
-4. Optional sample data: create an account in the app, then run `supabase/003_seed_demo.sql`.
+4. Optional sample data: create an account in the app, then run `supabase/003_seed_demo.sql` and `supabase/004_seed_scenes_costs.sql` (the costs in 004 are placeholder demo numbers).
 
 ### 3. Secrets
 

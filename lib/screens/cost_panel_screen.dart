@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data.dart';
 import '../theme.dart';
+import '../repository.dart';
 import '../widgets.dart';
 
 class CostPanelScreen extends StatefulWidget {
@@ -13,6 +14,69 @@ class CostPanelScreen extends StatefulWidget {
 class _CostPanelScreenState extends State<CostPanelScreen> {
   static const int _stillCents = 5; // sample still-image cost (cents)
   double _budget = 450; // cent
+  late Future<List<EpisodeCost>> _costs = Repo.fetchEpisodeCosts();
+
+  Widget _realCosts() {
+    return FutureBuilder<List<EpisodeCost>>(
+      future: _costs,
+      builder: (context, snap) {
+        final list = snap.data ?? const <EpisodeCost>[];
+        final total = list.fold<double>(0, (a, c) => a + c.usd);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Real cost per episode',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () =>
+                      setState(() => _costs = Repo.fetchEpisodeCosts()),
+                ),
+              ],
+            ),
+            if (snap.connectionState != ConnectionState.done)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (snap.hasError)
+              Text('Could not load costs: ${errText(snap.error!)}',
+                  style: const TextStyle(color: Colors.white54))
+            else if (list.isEmpty)
+              const Text(
+                'No cost data yet. Costs appear here when your episodes are generated (sign in to see your own series).',
+                style: TextStyle(color: Colors.white54),
+              )
+            else ...[
+              for (final c in list)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('${c.seriesTitle} · Episode ${c.number}'),
+                  trailing: Text('\$${c.usd.toStringAsFixed(4)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              const Divider(),
+              Text('Total: \$${total.toStringAsFixed(4)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+            const SizedBox(height: 24),
+            const Text('Budget planner (simulation)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
 
   /// 0-1 knapsack: maximizes total importance without exceeding the budget.
   List<bool> _solve(int budget) {
@@ -87,6 +151,7 @@ class _CostPanelScreenState extends State<CostPanelScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
+          _realCosts(),
           const Text(
             'A bigger budget turns more scenes into video. A 0-1 knapsack makes the choice: the most dramatic scenes get video first.',
             style: TextStyle(color: Colors.white70),

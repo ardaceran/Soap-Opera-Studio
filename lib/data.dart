@@ -13,7 +13,8 @@ enum EpisodeStatus { published, voting, rendering, locked }
 
 class Episode {
   const Episode(this.number, this.title, this.summary, this.status,
-      {this.pollId});
+      {this.pollId, this.id});
+  final String? id; // database id (null for mock episodes)
   final String? pollId; // poll at the end of the episode (if any)
   final int number;
   final String title;
@@ -40,6 +41,14 @@ class PollInfo {
   final int episodeNumber; // episode the poll opened on; the vote decides the next episode
   final DateTime closesAt;
   final List<PollOption> options;
+}
+
+class EpisodeCost {
+  const EpisodeCost(
+      {required this.seriesTitle, required this.number, required this.usd});
+  final String seriesTitle;
+  final int number;
+  final double usd;
 }
 
 class Series {

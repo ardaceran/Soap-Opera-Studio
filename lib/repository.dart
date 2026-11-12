@@ -128,6 +128,7 @@ class Repo {
       (e['summary'] ?? '') as String,
       status,
       pollId: poll?['id'] as String?,
+      id: e['id'] as String?,
     );
   }
 
@@ -270,5 +271,40 @@ class Repo {
       }
       rethrow;
     }
+  }
+
+  // ----------------------------------------------------- scenes and costs
+
+  /// Scenes of an episode in order: (dialogue, visual prompt).
+  static Future<List<({String dialogue, String visual})>> fetchScenes(
+      String episodeId) async {
+    final rows = await _db
+        .from('scenes')
+        .select('idx, dialogue, visual_prompt')
+        .eq('episode_id', episodeId)
+        .order('idx');
+    return [
+      for (final r in rows)
+        (
+          dialogue: (r['dialogue'] ?? '') as String,
+          visual: (r['visual_prompt'] ?? '') as String,
+        ),
+    ];
+  }
+
+  /// Real cost per episode (USD) from the episode_costs view; only your own series.
+  static Future<List<EpisodeCost>> fetchEpisodeCosts() async {
+    final rows = await _db
+        .from('episode_costs')
+        .select('number, cost_usd, series(title)')
+        .order('number');
+    return [
+      for (final r in rows)
+        EpisodeCost(
+          seriesTitle: ((r['series'] as Map?)?['title'] ?? '') as String,
+          number: r['number'] as int,
+          usd: (r['cost_usd'] as num).toDouble(),
+        ),
+    ];
   }
 }
