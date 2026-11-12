@@ -1,5 +1,5 @@
 name: soap_opera_studio
-description: AI Soap Opera Studio - mobile UI prototype (mock data, no backend yet)
+description: AI Soap Opera Studio - Flutter app (Supabase backend)
 publish_to: 'none'
 version: 0.1.0+1
 

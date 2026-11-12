@@ -51,6 +51,7 @@ Flutter app ──► Supabase (Auth, Postgres + RLS, Storage, Realtime)
 ```
 lib/                 Flutter app (screens, Supabase access in repository.dart)
 supabase/            SQL: schema.sql, 002_delete_account.sql, 003_seed_demo.sql
+needed_files/        web/, pubspec.lock, test/ and config to copy into the project root
 docs/                DartPad single-file demo (mock data, no backend)
 .env.example         Server-side keys (never commit a real .env)
 ```
@@ -64,13 +65,14 @@ Requires Flutter 3.19+ (Dart 3.3+).
 ```bash
 git clone https://github.com/ardaceran/Soap-Opera-Studio.git
 cd Soap-Opera-Studio
-flutter create . --platforms=android,ios,web   # generates the platform folders
-rm test/widget_test.dart                       # Windows: del test\widget_test.dart
+# copy the project files that live outside lib/ (web/, pubspec.lock, test/...)
+cp -R needed_files/. .                         # Windows: Copy-Item -Recurse -Force needed_files\* .
 flutter pub get
 flutter run                                    # or: flutter run -d chrome
 ```
 
-Build an Android APK: `flutter build apk`.
+Build an Android APK: run `flutter create . --platforms=android,ios` once, then `flutter build apk`.
+See `needed_files/README.md` for details.
 
 ### 2. Supabase
 
