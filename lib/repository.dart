@@ -242,7 +242,10 @@ class Repo {
   // ----------------------------------------------------------------- polls
 
   static const String _pollSelect =
-      'id, closes_at, poll_options(id, label), episodes(number, series(title))';
+      // polls <-> poll_options has two links (options of a poll, and the poll's
+      // winner); the !hint picks "options of this poll".
+      'id, closes_at, poll_options!poll_options_poll_id_fkey(id, label), '
+      'episodes(number, series(title))';
 
   static PollInfo _pollFrom(Map<String, dynamic> r) {
     final ep = Map<String, dynamic>.from(r['episodes'] as Map);
