@@ -92,6 +92,23 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(SEEN[0]["body"]["generationConfig"]["responseMimeType"],
                          "application/json")
 
+    def test_gemini_busy_is_retried_then_transient(self):
+        from sos_worker.llm import TransientLLMError, LLMError
+        llm = GeminiLLM("gkey", "busy-model", waits=(0, 0))
+        llm.URL = self.base + "/v1beta/models/{model}:generateContent"
+        REPLIES[("POST", "/v1beta/models/busy-model:generateContent")] = (
+            503, {"error": {"code": 503, "status": "UNAVAILABLE"}})
+        with self.assertRaises(TransientLLMError):
+            llm.generate_json("s", "p", "episode")
+        self.assertEqual(len(SEEN), 3)  # first try + 2 retries
+        SEEN.clear()
+        REPLIES[("POST", "/v1beta/models/busy-model:generateContent")] = (
+            404, {"error": {"code": 404}})
+        with self.assertRaises(LLMError) as ctx:
+            llm.generate_json("s", "p", "episode")
+        self.assertNotIsInstance(ctx.exception, TransientLLMError)
+        self.assertEqual(len(SEEN), 1)  # no retry on a real error
+
 
 if __name__ == "__main__":
     unittest.main()

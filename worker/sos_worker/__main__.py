@@ -10,7 +10,7 @@ import traceback
 
 from .config import Config
 from .db import Db
-from .llm import make_llm
+from .llm import TransientLLMError, make_llm
 from .pipeline import Pipeline
 
 
@@ -49,13 +49,17 @@ def main() -> None:
             db.finish_job(job["id"], llm.name)
             log(f"done   {label}")
         except Exception as e:
-            retry = int(job.get("attempts") or 1) < cfg.max_attempts \
-                and not isinstance(e, NotImplementedError)
+            attempts = int(job.get("attempts") or 1)
+            busy = isinstance(e, TransientLLMError)
+            # A busy provider gets many more tries than a real error.
+            limit = cfg.max_attempts * 5 if busy else cfg.max_attempts
+            retry = attempts < limit and not isinstance(e, NotImplementedError)
             db.fail_job(job["id"], f"{type(e).__name__}: {e}", retry)
             log(f"{'retry' if retry else 'FAILED'} {label}: {e}")
-            if not isinstance(e, NotImplementedError):
+            if not busy and not isinstance(e, NotImplementedError):
                 traceback.print_exc()
-            time.sleep(cfg.idle_seconds)
+            # Back off longer when the provider is busy.
+            time.sleep(60 if busy else cfg.idle_seconds)
 
 
 if __name__ == "__main__":

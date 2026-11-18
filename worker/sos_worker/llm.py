@@ -8,6 +8,7 @@ New providers (Groq, Claude, ...) only need a `generate_json` method.
 
 import json
 import re
+import time
 
 from . import http
 from .config import Config
@@ -15,6 +16,13 @@ from .config import Config
 
 class LLMError(Exception):
     pass
+
+
+class TransientLLMError(LLMError):
+    """The provider is busy or rate-limited; trying again later usually works."""
+
+
+TRANSIENT_STATUS = (429, 500, 502, 503, 504)
 
 
 class FakeLLM:
@@ -66,9 +74,10 @@ class GeminiLLM:
     name = "gemini"
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    def __init__(self, api_key: str, model: str):
+    def __init__(self, api_key: str, model: str, waits=(10, 30, 60)):
         self.api_key = api_key
         self.model = model
+        self.waits = waits  # seconds to wait before each retry when busy
 
     def generate_json(self, system: str, prompt: str, kind: str) -> dict:
         body = {
@@ -79,15 +88,23 @@ class GeminiLLM:
                 "temperature": 0.9,
             },
         }
-        try:
-            res = http.request(
-                "POST",
-                self.URL.format(model=self.model),
-                {"x-goog-api-key": self.api_key},
-                body,
-            )
-        except http.HttpError as e:
-            raise LLMError(f"Gemini request failed: {e}") from None
+        res = None
+        for attempt in range(len(self.waits) + 1):
+            try:
+                res = http.request(
+                    "POST",
+                    self.URL.format(model=self.model),
+                    {"x-goog-api-key": self.api_key},
+                    body,
+                )
+                break
+            except http.HttpError as e:
+                if e.status not in TRANSIENT_STATUS:
+                    raise LLMError(f"Gemini request failed: {e}") from None
+                if attempt == len(self.waits):
+                    raise TransientLLMError(
+                        f"Gemini busy (HTTP {e.status}) after {attempt + 1} tries") from None
+                time.sleep(self.waits[attempt])
         try:
             text = res["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError):
