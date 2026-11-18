@@ -25,7 +25,8 @@ Team: Arda Ceran and Mert.
 | Create and list series and characters | Working (one transaction via the `create_series` function; queues a season-plan job) |
 | Add an episode by hand (owner): scenes + optional poll | Working (`add_episode` function) |
 | Live voting, one vote per user | Working (Supabase) |
-| Episode generation (Claude, images, voice, FFmpeg) | Planned — the status screen shows the real job queue, which waits for the worker |
+| Season plan and episode scripts | Working with the worker (`worker/`): Gemini free tier, or fake sample text without a key |
+| Images, voice, video assembly | Planned |
 | Episode player | Reads scenes from the database (animated stills + captions); real video planned |
 | Cost per episode | Reads the `episode_costs` view (real data once the worker logs job costs) |
 
@@ -53,7 +54,9 @@ lib/                 Flutter app (screens, Supabase access in repository.dart)
 supabase/            SQL: schema.sql, 002_delete_account.sql, 003_seed_demo.sql
 needed_files/        web/, pubspec.lock, test/ and config to copy into the project root
 docs/                DartPad single-file demo (mock data, no backend)
-.env.example         Server-side keys (never commit a real .env)
+worker/              Generation worker (Python, Docker): season plan and scripts
+docker-compose.yml   Starts the worker with the keys from .env
+.env.example         Worker settings and keys (copy to .env, never commit it)
 ```
 
 ## Setup

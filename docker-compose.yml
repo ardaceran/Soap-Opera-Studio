@@ -1,0 +1,7 @@
+# Starts the generation worker:   docker compose up --build
+# Reads its settings and keys from the .env file next to this file (never committed).
+services:
+  worker:
+    build: ./worker
+    env_file: .env
+    restart: unless-stopped
