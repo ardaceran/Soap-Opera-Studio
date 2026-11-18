@@ -40,7 +40,7 @@ class Config:
             supabase_key=key,
             llm_provider=os.environ.get("LLM_PROVIDER", "auto").strip().lower(),
             gemini_api_key=os.environ.get("GEMINI_API_KEY", "").strip(),
-            gemini_model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip(),
+            gemini_model=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip(),
             poll_hours=_int("POLL_HOURS", 24),
             idle_seconds=_int("WORKER_IDLE_SECONDS", 5),
             max_attempts=_int("WORKER_MAX_ATTEMPTS", 3),
