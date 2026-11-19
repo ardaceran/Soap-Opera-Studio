@@ -8,6 +8,7 @@ the provider(s) used, the cost in USD and the episode the job belongs to.
 """
 
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import media, story, video
@@ -15,7 +16,8 @@ from . import media, story, video
 
 class Pipeline:
     def __init__(self, db, llm, poll_hours: int, images=None, voice=None,
-                 video_height: int = 1920, max_scenes: int = 0, prices=(3.0, 15.0)):
+                 video_height: int = 1920, max_scenes: int = 0, prices=(3.0, 15.0),
+                 poll_minutes: int = 0):
         self.db = db
         self.llm = llm
         self.poll_hours = poll_hours
@@ -24,6 +26,8 @@ class Pipeline:
         self.video_height = video_height
         self.max_scenes = max_scenes
         self.prices = prices  # Claude USD per million tokens (input, output)
+        # How long a vote stays open once the episode video is ready.
+        self.poll_window = timedelta(minutes=poll_minutes or poll_hours * 60)
         self.last = {}
 
     def run(self, job: dict) -> None:
@@ -135,7 +139,43 @@ class Pipeline:
             path = self.db.upload("episodes", f"{sid}/{eid}.mp4", mp4.read_bytes(),
                                   "video/mp4")
         self.db.set_episode_video(eid, path)
+        # Viewers can only vote after watching, so the vote clock starts now.
+        self.db.set_poll_closes(eid, _iso(_now() + self.poll_window))
         self.last["cost"] = cost
+
+    # Finished votes -> winner -> script job for the next episode.
+    def close_due_polls(self, now=None) -> list:
+        """Returns [(series_id, next episode number, winning label)] for each vote closed."""
+        closed = []
+        for poll in self.db.due_polls(_iso(now or _now())):
+            ep = poll.get("episodes") or {}
+            options = poll.get("poll_options") or []
+            if not options or not ep:
+                continue
+            counts = self.db.vote_counts(poll["id"])
+            # Most votes wins; a tie (or no votes) goes to the option listed first.
+            best = max(options, key=lambda o: (counts.get(o["id"], 0), -options.index(o)))
+            if not self.db.set_winner(poll["id"], best["id"]):
+                continue  # another worker closed it a moment ago
+            sid, nxt = ep["series_id"], int(ep["number"]) + 1
+            if nxt <= self.season_length(sid) and not self.db.episode_exists(sid, nxt):
+                self.db.enqueue(sid, "script", {"episode": nxt})
+                closed.append((sid, nxt, best["label"]))
+            else:
+                closed.append((sid, None, best["label"]))  # season finished
+        return closed
+
+    def season_length(self, series_id: str) -> int:
+        plan = (self.db.get_series(series_id) or {}).get("season_plan") or {}
+        return len(plan.get("episodes") or []) or 5
+
+
+def _now():
+    return datetime.now(timezone.utc)
+
+
+def _iso(t) -> str:
+    return t.isoformat().replace("+00:00", "Z")
 
 
 def split_dialogue(dialogue: str):

@@ -6,7 +6,15 @@ Reads the `jobs` table in Supabase and writes the story:
 | --- | --- |
 | `season_plan` | Created when a user creates a series. The text model writes a 5-episode plan, saved to `series.season_plan`, then a `script` job for episode 1 is queued. |
 | `script` | The text model writes 12–15 scenes and 3 poll options, using the season plan, earlier episode summaries and the winning vote of the previous episode. The episode, scenes and poll are published in one transaction (`worker_publish_episode`), then an `assemble` job is queued. |
-| `assemble` | Makes the episode video (below) and saves it to Storage `episodes/<series>/<episode>.mp4`; `episodes.video_path` points to it. |
+| `assemble` | Makes the episode video (below) and saves it to Storage `episodes/<series>/<episode>.mp4`; `episodes.video_path` points to it. The vote clock starts now (`POLL_HOURS`, or `POLL_MINUTES` for a live demo). |
+
+### Votes close by themselves
+
+Every `POLL_CHECK_SECONDS` (30) the worker looks for votes whose time is up and that have
+no winner. The option with the most votes wins (a tie, or no votes, goes to the option
+listed first), and a `script` job for the next episode is queued with it, until the
+season plan's last episode. The winner is written only if the poll has none yet, so two
+workers never close the same vote twice.
 
 ### How an episode video is made
 
@@ -28,7 +36,7 @@ audio, so the whole flow can be tested at no cost.
 Text models (`LLM_PROVIDER`): `claude` (needs `ANTHROPIC_API_KEY`, the default in `auto`
 mode as the course brief asks for scripts by Claude), `gemini` (free tier, needs
 `GEMINI_API_KEY`, development fallback) or `fake` (sample text, no key).
-Not done yet: closing polls automatically, real video clips (Kling/Veo) for key scenes.
+Not done yet: real video clips (Kling/Veo) for key scenes.
 
 ## Run
 

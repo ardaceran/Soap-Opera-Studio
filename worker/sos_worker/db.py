@@ -147,6 +147,40 @@ class Db:
     def set_episode_video(self, episode_id: str, path: str):
         self._update("episodes", f"id=eq.{episode_id}", {"video_path": path})
 
+    # ------------------------------------------------------------------ votes
+    def due_polls(self, now_iso: str) -> list:
+        """Polls whose time is up and that have no winner yet."""
+        rows = self._get(
+            f"/polls?closes_at=lte.{now_iso}&winner_option_id=is.null"
+            "&select=id,episode_id,episodes(series_id,number),"
+            "poll_options!poll_options_poll_id_fkey(id,label)"
+        )
+        return rows or []
+
+    def vote_counts(self, poll_id: str) -> dict:
+        """{option_id: number of votes}"""
+        counts = {}
+        for r in self._get(f"/votes?poll_id=eq.{poll_id}&select=option_id") or []:
+            counts[r["option_id"]] = counts.get(r["option_id"], 0) + 1
+        return counts
+
+    def set_winner(self, poll_id: str, option_id: str) -> bool:
+        """Writes the winner only if there is none yet. False: someone else closed it first."""
+        h = dict(self.headers, Prefer="return=representation")
+        rows = http.request(
+            "PATCH", f"{self.base}/polls?id=eq.{poll_id}&winner_option_id=is.null",
+            h, {"winner_option_id": option_id})
+        return bool(rows)
+
+    def set_poll_closes(self, episode_id: str, closes_iso: str):
+        """Starts the vote clock again (when the episode video is ready)."""
+        self._update("polls", f"episode_id=eq.{episode_id}&winner_option_id=is.null",
+                     {"closes_at": closes_iso})
+
+    def episode_exists(self, series_id: str, number: int) -> bool:
+        rows = self._get(f"/episodes?series_id=eq.{series_id}&number=eq.{number}&select=id")
+        return bool(rows)
+
     # ------------------------------------------------------------------ storage
     def upload(self, bucket: str, path: str, data: bytes, content_type: str) -> str:
         """Upload (or overwrite) a file in Supabase Storage; returns its path."""

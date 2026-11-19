@@ -27,15 +27,28 @@ def main() -> None:
     images, voice = make_media(cfg)
     pipe = Pipeline(db, llm, cfg.poll_hours, images, voice,
                     cfg.video_height, cfg.max_scenes,
-                    (cfg.claude_usd_in, cfg.claude_usd_out))
+                    (cfg.claude_usd_in, cfg.claude_usd_out), cfg.poll_minutes)
     log(f"worker started · text model: {llm.name}"
         + (f" ({cfg.gemini_model})" if llm.name == "gemini" else "")
         + (f" ({cfg.claude_model})" if llm.name == "claude" else "")
         + f" · images: {images.name} · voice: {voice.name}"
         + f" · video {cfg.video_height}p"
-        + (f" · first {cfg.max_scenes} scenes only" if cfg.max_scenes else ""))
+        + (f" · first {cfg.max_scenes} scenes only" if cfg.max_scenes else "")
+        + f" · votes last {cfg.poll_minutes or cfg.poll_hours * 60} min")
+
+    last_poll_check = 0.0
 
     while True:
+        # Close finished votes; each one queues the script of the next episode.
+        if time.time() - last_poll_check >= cfg.poll_check_seconds:
+            last_poll_check = time.time()
+            try:
+                for sid, nxt, label in pipe.close_due_polls():
+                    log(f"vote closed · series {sid[:8]} · winner: {label} · "
+                        + (f"queued episode {nxt}" if nxt else "season finished"))
+            except Exception as e:
+                log(f"could not close votes: {e}")
+
         try:
             job = db.claim_next_job()
         except Exception as e:  # network or Supabase down: wait and retry

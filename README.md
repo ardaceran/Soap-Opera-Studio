@@ -24,7 +24,7 @@ Team: Arda Ceran and Mert.
 | Sign-in / sign-up, KVKK consent, account deletion | Working (Supabase Auth) |
 | Create and list series and characters | Working (one transaction via the `create_series` function; queues a season-plan job) |
 | Add an episode by hand (owner): scenes + optional poll | Working (`add_episode` function) |
-| Live voting, one vote per user | Working (Supabase) |
+| Live voting, one vote per user | Working (Supabase); the worker closes finished votes and writes the next episode from the winner |
 | Season plan and episode scripts | Working with the worker (`worker/`): Gemini free tier, or fake sample text without a key |
 | Images, voice, video assembly | Planned |
 | Episode player | Reads scenes from the database (animated stills + captions); real video planned |
