@@ -25,7 +25,8 @@ def main() -> None:
     llm = make_llm(cfg)
     pipe = Pipeline(db, llm, cfg.poll_hours)
     log(f"worker started · text model: {llm.name}"
-        + (f" ({cfg.gemini_model})" if llm.name == "gemini" else ""))
+        + (f" ({cfg.gemini_model})" if llm.name == "gemini" else "")
+        + (f" ({cfg.claude_model})" if llm.name == "claude" else ""))
 
     while True:
         try:

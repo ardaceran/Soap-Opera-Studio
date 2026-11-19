@@ -1,6 +1,6 @@
 """Settings read from environment variables (the .env file in the repo root).
 
-Secrets never live in code: SUPABASE_SECRET_KEY and GEMINI_API_KEY come only
+Secrets never live in code: SUPABASE_SECRET_KEY, ANTHROPIC_API_KEY and GEMINI_API_KEY come only
 from the environment.
 """
 
@@ -17,12 +17,15 @@ def _int(name: str, default: int) -> int:
 class Config:
     supabase_url: str
     supabase_key: str
-    llm_provider: str  # "auto", "gemini" or "fake"
+    llm_provider: str  # "auto", "claude", "gemini" or "fake"
     gemini_api_key: str
     gemini_model: str
     poll_hours: int
     idle_seconds: int
     max_attempts: int
+    anthropic_api_key: str = ""
+    claude_model: str = "claude-sonnet-5-5"
+    claude_max_tokens: int = 8000
 
     @staticmethod
     def from_env() -> "Config":
@@ -44,4 +47,7 @@ class Config:
             poll_hours=_int("POLL_HOURS", 24),
             idle_seconds=_int("WORKER_IDLE_SECONDS", 5),
             max_attempts=_int("WORKER_MAX_ATTEMPTS", 3),
+            anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
+            claude_model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5").strip(),
+            claude_max_tokens=_int("CLAUDE_MAX_TOKENS", 8000),
         )

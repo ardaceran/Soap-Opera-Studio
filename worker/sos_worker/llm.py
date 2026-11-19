@@ -1,9 +1,13 @@
 """Text model providers. Every provider returns parsed JSON for a prompt.
 
 - FakeLLM: no key, no network, deterministic sample text (for development).
-- GeminiLLM: Google Gemini API free tier (key from aistudio.google.com).
+- ClaudeLLM: Anthropic Messages API (key from console.anthropic.com). The course
+  brief asks for season plans and scripts by Claude, so this is the default when
+  ANTHROPIC_API_KEY is set.
+- GeminiLLM: Google Gemini API free tier (key from aistudio.google.com), a free
+  fallback during development.
 
-New providers (Groq, Claude, ...) only need a `generate_json` method.
+New providers only need a `generate_json` method.
 """
 
 import json
@@ -70,6 +74,52 @@ class FakeLLM:
         }
 
 
+class ClaudeLLM:
+    name = "claude"
+    URL = "https://api.anthropic.com/v1/messages"
+    VERSION = "2023-06-01"
+
+    def __init__(self, api_key: str, model: str, max_tokens: int = 8000, waits=(10, 30, 60)):
+        self.api_key = api_key
+        self.model = model
+        self.max_tokens = max_tokens
+        self.waits = waits  # seconds to wait before each retry when busy
+        self.last_usage = None  # {"input_tokens": .., "output_tokens": ..} for cost logging
+
+    def generate_json(self, system: str, prompt: str, kind: str) -> dict:
+        body = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "temperature": 0.9,
+            "system": system + "\n\nRespond with a single JSON object only, no prose, no code fences.",
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        headers = {"x-api-key": self.api_key, "anthropic-version": self.VERSION}
+        res = None
+        for attempt in range(len(self.waits) + 1):
+            try:
+                res = http.request("POST", self.URL, headers, body)
+                break
+            except http.HttpError as e:
+                # 529 = Anthropic overloaded
+                if e.status not in TRANSIENT_STATUS + (529,):
+                    raise LLMError(f"Claude request failed: {e}") from None
+                if attempt == len(self.waits):
+                    raise TransientLLMError(
+                        f"Claude busy (HTTP {e.status}) after {attempt + 1} tries") from None
+                time.sleep(self.waits[attempt])
+        self.last_usage = (res or {}).get("usage")
+        if (res or {}).get("stop_reason") == "max_tokens":
+            raise LLMError("Claude output was cut off (max_tokens); raise CLAUDE_MAX_TOKENS.")
+        try:
+            text = "".join(b["text"] for b in res["content"] if b.get("type") == "text")
+        except (KeyError, TypeError):
+            raise LLMError(f"Claude returned no text: {res}") from None
+        if not text.strip():
+            raise LLMError(f"Claude returned empty text (stop_reason={res.get('stop_reason')})")
+        return parse_json(text)
+
+
 class GeminiLLM:
     name = "gemini"
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -121,14 +171,27 @@ def parse_json(text: str) -> dict:
     try:
         return json.loads(t)
     except json.JSONDecodeError as e:
+        # Tolerate a sentence before or after the object.
+        start, end = t.find("{"), t.rfind("}")
+        if 0 <= start < end:
+            try:
+                return json.loads(t[start:end + 1])
+            except json.JSONDecodeError:
+                pass
         raise LLMError(f"Model did not return valid JSON: {e}") from None
 
 
 def make_llm(cfg: Config):
-    if cfg.llm_provider == "fake":
+    """auto: Claude if ANTHROPIC_API_KEY is set, else Gemini if GEMINI_API_KEY is set, else fake."""
+    p = cfg.llm_provider
+    if p == "fake":
         return FakeLLM()
-    if cfg.llm_provider in ("gemini", "auto") and cfg.gemini_api_key:
+    if p in ("claude", "auto") and cfg.anthropic_api_key:
+        return ClaudeLLM(cfg.anthropic_api_key, cfg.claude_model, cfg.claude_max_tokens)
+    if p == "claude":
+        raise SystemExit("LLM_PROVIDER=claude but ANTHROPIC_API_KEY is empty.")
+    if p in ("gemini", "auto") and cfg.gemini_api_key:
         return GeminiLLM(cfg.gemini_api_key, cfg.gemini_model)
-    if cfg.llm_provider == "gemini":
+    if p == "gemini":
         raise SystemExit("LLM_PROVIDER=gemini but GEMINI_API_KEY is empty.")
     return FakeLLM()
