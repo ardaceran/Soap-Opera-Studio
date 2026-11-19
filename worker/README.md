@@ -30,8 +30,17 @@ workers never close the same vote twice.
 5. **Cost:** every call's cost is written to `jobs.cost_usd` with the episode id, so
    the `episode_costs` view shows the real cost per episode (Demo Day c).
 
-Without `FAL_KEY` / `ELEVENLABS_API_KEY` the worker uses free placeholder cards and quiet
-audio, so the whole flow can be tested at no cost.
+Providers (`MEDIA_PROVIDER=auto` takes, for images and for voice, the first with a key):
+
+| | Images | Voice | Cost |
+| --- | --- | --- | --- |
+| fal.ai + ElevenLabs | FLUX schnell portraits, FLUX Kontext [pro] scenes | ElevenLabs | paid |
+| Cloudflare Workers AI | FLUX.2 [klein] 4B; the speaker's portrait goes in as reference image | Deepgram Aura (12 voices) | free daily allowance (10,000 neurons) |
+| fake | placeholder cards | quiet tone | free, offline |
+
+Voices are picked by a gender hint in the character's role/description (mother, he,
+woman...), otherwise alternating, and saved so they never change. A voice saved by
+another provider is replaced once.
 
 Text models (`LLM_PROVIDER`): `claude` (needs `ANTHROPIC_API_KEY`, the default in `auto`
 mode as the course brief asks for scripts by Claude), `gemini` (free tier, needs
@@ -50,7 +59,8 @@ Not done yet: real video clips (Kling/Veo) for key scenes.
 
 On GitHub (no Docker needed): add the keys as repository secrets (Settings → Secrets
 and variables → Actions: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and optionally
-`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`), then Actions → **Run worker** →
+`GEMINI_API_KEY` / `ANTHROPIC_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`,
+`FAL_KEY`, `ELEVENLABS_API_KEY`), then Actions → **Run worker** →
 Run workflow. It runs for the chosen minutes (max 300).
 
 Without Docker: `cd worker` then `python -m sos_worker` (Python 3.10+ and FFmpeg, with the

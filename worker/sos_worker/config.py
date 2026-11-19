@@ -1,7 +1,7 @@
 """Settings read from environment variables (the .env file in the repo root).
 
 Secrets never live in code: SUPABASE_SECRET_KEY and the AI provider keys (ANTHROPIC, GEMINI, FAL,
-ELEVENLABS) come only
+ELEVENLABS, CLOUDFLARE) come only
 from the environment.
 """
 
@@ -39,7 +39,7 @@ class Config:
     # USD per million tokens, for the cost report. Check the Anthropic pricing page.
     claude_usd_in: float = 3.0
     claude_usd_out: float = 15.0
-    # Images and voice: "auto" (real provider when its key is set), "real" or "fake".
+    # Images and voice: "auto" (first provider with a key), "cloudflare", "real" or "fake".
     media_provider: str = "auto"
     fal_key: str = ""
     fal_ref_model: str = "fal-ai/flux/schnell"        # portraits, narrator shots
@@ -49,6 +49,14 @@ class Config:
     elevenlabs_key: str = ""
     elevenlabs_model: str = "eleven_multilingual_v2"
     elevenlabs_usd_per_char: float = 0.0003  # estimate; depends on your plan
+    # Cloudflare Workers AI: free daily allowance (10,000 neurons/day).
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: str = ""
+    cloudflare_image_model: str = "@cf/black-forest-labs/flux-2-klein-4b"
+    cloudflare_voice_model: str = "@cf/deepgram/aura-1"
+    # Cost at the paid rate, for the cost report; within the free allowance you pay nothing.
+    cloudflare_usd_per_image: float = 0.001   # ~85 neurons x $0.011 / 1,000 neurons
+    cloudflare_usd_per_char: float = 0.000015  # Aura: $0.015 per 1,000 characters
     video_height: int = 1920           # 960 for cheap test runs
     max_scenes: int = 0                # 0 = all; e.g. 3 for short test runs
     # Vote length in minutes; overrides POLL_HOURS when set (e.g. 3 for a live demo).
@@ -89,6 +97,13 @@ class Config:
             elevenlabs_key=_str("ELEVENLABS_API_KEY"),
             elevenlabs_model=_str("ELEVENLABS_MODEL", "eleven_multilingual_v2"),
             elevenlabs_usd_per_char=_float("ELEVENLABS_USD_PER_CHAR", 0.0003),
+            cloudflare_account_id=_str("CLOUDFLARE_ACCOUNT_ID"),
+            cloudflare_api_token=_str("CLOUDFLARE_API_TOKEN"),
+            cloudflare_image_model=_str("CLOUDFLARE_IMAGE_MODEL",
+                                        "@cf/black-forest-labs/flux-2-klein-4b"),
+            cloudflare_voice_model=_str("CLOUDFLARE_VOICE_MODEL", "@cf/deepgram/aura-1"),
+            cloudflare_usd_per_image=_float("CLOUDFLARE_USD_PER_IMAGE", 0.001),
+            cloudflare_usd_per_char=_float("CLOUDFLARE_USD_PER_CHAR", 0.000015),
             video_height=_int("VIDEO_HEIGHT", 1920),
             max_scenes=_int("MEDIA_MAX_SCENES", 0),
             poll_minutes=_int("POLL_MINUTES", 0),

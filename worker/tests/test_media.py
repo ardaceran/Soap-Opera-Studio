@@ -121,8 +121,9 @@ class AssembleTest(unittest.TestCase):
         updates = dict()
         for cid, v in self.db.char_updates:
             updates.setdefault(cid, {}).update(v)
-        # Defne had nothing: gets a default voice and a portrait under the owner's folder
-        self.assertIn(updates["c1"]["voice_id"], media.DEFAULT_VOICES)
+        # Defne had nothing: gets a voice and a portrait under the owner's folder
+        # (fake voice provider; first character with no gender hint gets a female voice)
+        self.assertEqual(updates["c1"]["voice_id"], "fake-f1")
         self.assertEqual(updates["c1"]["ref_image_paths"], ["u1/s1/c1.jpg"])
         # Kerem already had both: untouched
         self.assertNotIn("c2", updates)
@@ -146,6 +147,7 @@ class AssembleTest(unittest.TestCase):
 
 class PricedFake(media.FakeImages):
     name = "priced"
+    ref_kind = "url"
 
     def reference(self, c, s):
         return super().reference(c, s)[0], 0.003
@@ -218,8 +220,11 @@ class ElevenTest(unittest.TestCase):
 
 
 class MakeMediaTest(unittest.TestCase):
-    def cfg(self, mode, fal="", el=""):
+    def cfg(self, mode, fal="", el="", cf=""):
         return mock.Mock(media_provider=mode, fal_key=fal, elevenlabs_key=el,
+                         cloudflare_account_id=cf, cloudflare_api_token=cf,
+                         cloudflare_image_model="ci", cloudflare_voice_model="cv",
+                         cloudflare_usd_per_image=0, cloudflare_usd_per_char=0,
                          fal_ref_model="r", fal_scene_model="s", fal_usd_per_ref=0,
                          fal_usd_per_scene=0, elevenlabs_model="m",
                          elevenlabs_usd_per_char=0)
@@ -230,6 +235,16 @@ class MakeMediaTest(unittest.TestCase):
         i, v = media.make_media(self.cfg("auto", "f", "e"))
         self.assertEqual((i.name, v.name), ("fal", "elevenlabs"))
 
+    def test_auto_falls_back_to_cloudflare_per_kind(self):
+        i, v = media.make_media(self.cfg("auto", cf="x"))
+        self.assertEqual((i.name, v.name), ("cloudflare", "cloudflare"))
+        i, v = media.make_media(self.cfg("auto", fal="f", cf="x"))
+        self.assertEqual((i.name, v.name), ("fal", "cloudflare"))
+
+    def test_cloudflare_without_keys_stops(self):
+        with self.assertRaises(SystemExit):
+            media.make_media(self.cfg("cloudflare"))
+
     def test_real_without_keys_stops(self):
         with self.assertRaises(SystemExit):
             media.make_media(self.cfg("real", "f", ""))
@@ -237,3 +252,30 @@ class MakeMediaTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BytesFake(media.FakeImages):
+    """Like Cloudflare: wants the portrait itself, not a link."""
+    ref_kind = "bytes"
+
+    def scene(self, v, sp, s, ref=None):
+        self.refs = getattr(self, "refs", []) + [(sp, ref)]
+        return super().scene(v, sp, s)
+
+
+@unittest.skipUnless(HAS_FFMPEG, "ffmpeg not installed")
+class PortraitBytesTest(unittest.TestCase):
+    def test_new_portrait_is_reused_and_old_one_downloaded_once(self):
+        db = RenderDb()
+        images = BytesFake()
+        pipe = Pipeline(db, FakeLLM(), 24, images=images, video_height=640, max_scenes=4)
+        pipe.run({"type": "script", "series_id": "s1", "payload": {"episode": 1}})
+        with mock.patch.object(http, "download", return_value=b"KEREM") as dl:
+            pipe.run({"type": "assemble", "series_id": "s1", "episode_id": "e1"})
+        refs = dict(images.refs)
+        self.assertIsNone(refs["Narrator"])
+        # Defne's portrait was made in this run: the same bytes, no download
+        self.assertEqual(refs["Defne"], db.files["character-refs/u1/s1/c1.jpg"][0])
+        # Kerem's portrait existed already: downloaded through a signed link, once
+        self.assertEqual(refs["Kerem"], b"KEREM")
+        dl.assert_called_once_with("https://signed/character-refs/u1/s1/c2.jpg")
