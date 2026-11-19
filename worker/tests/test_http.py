@@ -166,5 +166,17 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(url, self.base + "/storage/v1/object/sign/character-refs/u/s/c.jpg?token=t")
 
 
+class TimeoutTest(unittest.TestCase):
+    def test_gemini_timeout_is_transient(self):
+        from unittest import mock
+        from sos_worker import llm as llm_mod
+        g = llm_mod.GeminiLLM("k", "m", waits=(0,))
+        with mock.patch.object(llm_mod.http, "request", side_effect=TimeoutError("timed out")) as req:
+            with self.assertRaises(llm_mod.TransientLLMError):
+                g.generate_json("s", "p", "episode")
+        self.assertEqual(req.call_count, 2)
+        self.assertEqual(req.call_args.kwargs.get("timeout"), llm_mod.LLM_TIMEOUT)
+
+
 if __name__ == "__main__":
     unittest.main()
