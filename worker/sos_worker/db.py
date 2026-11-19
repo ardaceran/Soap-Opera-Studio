@@ -62,6 +62,22 @@ class Db:
              "error": error[:1000], "updated_at": _now()},
         )
 
+    def requeue_stale(self, cutoff_iso: str) -> int:
+        """Jobs left 'running' since before cutoff (the worker was stopped mid-job) go back
+        to the queue. Returns how many."""
+        h = dict(self.headers, Prefer="return=representation")
+        rows = http.request(
+            "PATCH", f"{self.base}/jobs?status=eq.running&updated_at=lt.{cutoff_iso}",
+            h, {"status": "queued", "updated_at": _now()})
+        return len(rows or [])
+
+    def job_counts(self) -> dict:
+        """{status: number of jobs}, for the end-of-run summary."""
+        counts = {}
+        for r in self._get("/jobs?select=status") or []:
+            counts[r["status"]] = counts.get(r["status"], 0) + 1
+        return counts
+
     def enqueue(self, series_id: str, job_type: str, payload: dict, episode_id=None):
         return self._insert(
             "jobs",

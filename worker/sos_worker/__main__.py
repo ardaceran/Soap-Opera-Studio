@@ -2,11 +2,13 @@
 
 Run:  python -m sos_worker          (keeps running)
       python -m sos_worker --once   (handles queued jobs, then exits)
+      python -m sos_worker --status (prints job counts; exit code 1 if any job failed)
 """
 
 import sys
 import time
 import traceback
+from datetime import datetime, timedelta, timezone
 
 from .config import Config
 from .db import Db
@@ -19,7 +21,22 @@ def log(msg: str) -> None:
     print(time.strftime("%H:%M:%S"), msg, flush=True)
 
 
+def requeue_stale(db, cfg) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=cfg.stale_job_minutes)
+    n = db.requeue_stale(cutoff.isoformat().replace("+00:00", "Z"))
+    if n:
+        log(f"requeued {n} job(s) left running by a stopped worker")
+
+
+def status() -> None:
+    counts = Db(Config.from_env()).job_counts()
+    print("jobs:", ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) or "none")
+    sys.exit(1 if counts.get("failed") else 0)
+
+
 def main() -> None:
+    if "--status" in sys.argv:
+        return status()
     once = "--once" in sys.argv
     cfg = Config.from_env()
     db = Db(cfg)
@@ -43,6 +60,7 @@ def main() -> None:
         if time.time() - last_poll_check >= cfg.poll_check_seconds:
             last_poll_check = time.time()
             try:
+                requeue_stale(db, cfg)
                 for sid, nxt, label in pipe.close_due_polls():
                     log(f"vote closed · series {sid[:8]} · winner: {label} · "
                         + (f"queued episode {nxt}" if nxt else "season finished"))
