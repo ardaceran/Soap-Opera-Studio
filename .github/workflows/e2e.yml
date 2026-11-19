@@ -1,7 +1,8 @@
 # End-to-end check of the worker against a Supabase TEST project, started by hand
 # (Actions tab -> "Worker end-to-end" -> Run workflow).
 #
-# Uses free fake text, images and voice, so it costs nothing. In about 3 minutes:
+# By default uses free fake text, images and voice. Options: real images and voice from
+# Cloudflare (free daily allowance) and a real script from Gemini (free tier). In about 3 minutes:
 # season plan -> episode 1 script -> episode 1 video -> vote closes (1 minute) ->
 # episode 2 script -> episode 2 video. Check the result in the Supabase dashboard.
 #
@@ -25,6 +26,11 @@ on:
           CLOUDFLARE_* repository secrets (free daily allowance)"
         type: choice
         options: [fake, cloudflare]
+        default: fake
+      text:
+        description: "fake = sample script; gemini = real script from the GEMINI_API_KEY secret"
+        type: choice
+        options: [fake, gemini]
         default: fake
 
 jobs:
@@ -50,7 +56,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ inputs.supabase_url }}
           SUPABASE_SECRET_KEY: ${{ inputs.supabase_key }}
-          LLM_PROVIDER: fake
+          LLM_PROVIDER: ${{ inputs.text }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MEDIA_PROVIDER: ${{ inputs.media }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
