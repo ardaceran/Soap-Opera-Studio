@@ -48,6 +48,11 @@ Not done yet: real video clips (Kling/Veo) for key scenes.
 4. Create a series in the app. The worker log shows `season_plan` then `script`;
    episode 1 appears in the app with its poll.
 
+On GitHub (no Docker needed): add the keys as repository secrets (Settings → Secrets
+and variables → Actions: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and optionally
+`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`), then Actions → **Run worker** →
+Run workflow. It runs for the chosen minutes (max 300).
+
 Without Docker: `cd worker` then `python -m sos_worker` (Python 3.10+ and FFmpeg, with the
 variables from `.env` set in the shell). `--once` handles the queue and exits.
 

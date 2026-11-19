@@ -1,0 +1,60 @@
+# Runs the generation worker on GitHub's servers, so nobody needs Docker on a laptop.
+# Start it by hand: Actions tab -> "Run worker" -> Run workflow (choose how many minutes).
+#
+# Keys come from the repository's GitHub Secrets (Settings -> Secrets and variables ->
+# Actions). They are never shown in the logs. Needed: SUPABASE_URL, SUPABASE_SECRET_KEY.
+# Optional: ANTHROPIC_API_KEY, FAL_KEY, ELEVENLABS_API_KEY (without them the worker uses
+# free sample text, placeholder images and quiet audio).
+name: Run worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "How long the worker runs (minutes, max 300)"
+        default: "60"
+      quality:
+        description: "test = 960p and first 3 scenes (cheap), full = 1920p, all scenes"
+        type: choice
+        options: [test, full]
+        default: test
+      poll_minutes:
+        description: "How long each vote stays open (minutes). Empty = 24 hours"
+        default: ""
+
+concurrency: worker   # never two workers at once
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 310
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FFmpeg and the caption font
+        timeout-minutes: 8
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core
+      - name: Run the worker
+        working-directory: worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          VIDEO_HEIGHT: ${{ inputs.quality == 'full' && '1920' || '960' }}
+          MEDIA_MAX_SCENES: ${{ inputs.quality == 'full' && '0' || '3' }}
+          POLL_MINUTES: ${{ inputs.poll_minutes }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::Add SUPABASE_URL and SUPABASE_SECRET_KEY in Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
+          m=${{ inputs.minutes }}; [ "$m" -gt 300 ] && m=300
+          timeout $(( m * 60 )) python -m sos_worker || [ $? -eq 124 ]
