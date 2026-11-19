@@ -276,7 +276,7 @@ alter publication supabase_realtime add table public.votes;
 -- Account deletion function: run supabase/002_delete_account.sql after this file.
 
 -- ---------------------------------------------------------------- rpc
-Create a series, its characters and the first generation job in ONE
+-- Create a series, its characters and the first generation job in ONE
 --    transaction, so a failure never leaves a half-saved series.
 create or replace function public.create_series(
   p_title text, p_genre text, p_setting text, p_characters jsonb)

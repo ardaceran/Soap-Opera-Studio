@@ -1,0 +1,54 @@
+# End-to-end check of the worker against a Supabase TEST project, started by hand
+# (Actions tab -> "Worker end-to-end" -> Run workflow).
+#
+# Uses free fake text, images and voice, so it costs nothing. In about 3 minutes:
+# season plan -> episode 1 script -> episode 1 video -> vote closes (1 minute) ->
+# episode 2 script -> episode 2 video. Check the result in the Supabase dashboard.
+#
+# Never point this at the real project: use a throwaway test project.
+name: Worker end-to-end
+
+on:
+  workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: "Supabase TEST project URL (https://<ref>.supabase.co)"
+        required: true
+      supabase_key:
+        description: "Key of the TEST project with worker rights"
+        required: true
+      seconds:
+        description: "How long the worker runs"
+        default: "240"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hide the key in the logs
+        run: echo "::add-mask::${{ inputs.supabase_key }}"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Ubuntu's FFmpeg has the drawtext and ass filters the worker uses
+      # (the prebuilt static builds lack drawtext). Skipping man-db keeps apt fast.
+      - name: Install FFmpeg and the caption font
+        timeout-minutes: 8
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core
+      - name: Run the worker
+        working-directory: worker
+        env:
+          SUPABASE_URL: ${{ inputs.supabase_url }}
+          SUPABASE_SECRET_KEY: ${{ inputs.supabase_key }}
+          LLM_PROVIDER: fake
+          MEDIA_PROVIDER: fake
+          VIDEO_HEIGHT: "640"
+          MEDIA_MAX_SCENES: "3"
+          POLL_MINUTES: "1"
+          POLL_CHECK_SECONDS: "10"
+          WORKER_IDLE_SECONDS: "2"
+        run: timeout ${{ inputs.seconds }} python -m sos_worker || [ $? -eq 124 ]
