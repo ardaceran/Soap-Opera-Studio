@@ -72,6 +72,9 @@ class RenderDb:
     def set_episode_video(self, eid, path):
         self.video_path = path
 
+    def set_poll_closes(self, eid, closes_iso):
+        self.poll_closes = closes_iso
+
     def upload(self, bucket, path, data, content_type):
         self.files[f"{bucket}/{path}"] = (data, content_type)
         return path
@@ -101,6 +104,8 @@ class AssembleTest(unittest.TestCase):
     def test_assemble_uploads_video_and_media(self):
         self.pipe.run({"type": "assemble", "series_id": "s1", "episode_id": "e1"})
         self.assertEqual(self.db.video_path, "s1/e1.mp4")
+        # the vote clock starts when the video is ready
+        self.assertTrue(self.db.poll_closes.endswith("Z"))
         data, ctype = self.db.files["episodes/s1/e1.mp4"]
         self.assertEqual(ctype, "video/mp4")
         self.assertGreater(len(data), 10_000)

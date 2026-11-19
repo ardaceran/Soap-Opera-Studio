@@ -51,6 +51,9 @@ class Config:
     elevenlabs_usd_per_char: float = 0.0003  # estimate; depends on your plan
     video_height: int = 1920           # 960 for cheap test runs
     max_scenes: int = 0                # 0 = all; e.g. 3 for short test runs
+    # Vote length in minutes; overrides POLL_HOURS when set (e.g. 3 for a live demo).
+    poll_minutes: int = 0
+    poll_check_seconds: int = 30       # how often the worker looks for finished votes
 
     @staticmethod
     def from_env() -> "Config":
@@ -88,4 +91,6 @@ class Config:
             elevenlabs_usd_per_char=_float("ELEVENLABS_USD_PER_CHAR", 0.0003),
             video_height=_int("VIDEO_HEIGHT", 1920),
             max_scenes=_int("MEDIA_MAX_SCENES", 0),
+            poll_minutes=_int("POLL_MINUTES", 0),
+            poll_check_seconds=_int("POLL_CHECK_SECONDS", 30),
         )

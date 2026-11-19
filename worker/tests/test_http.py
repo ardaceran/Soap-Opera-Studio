@@ -28,7 +28,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    do_GET = do_POST = do_PATCH = _reply
+    def _reply_any(self):
+        # Storage uploads send raw bytes, not JSON.
+        if self.headers.get("Content-Type", "").startswith("application/json") \
+                or not self.headers.get("Content-Length"):
+            return self._reply()
+        n = int(self.headers.get("Content-Length") or 0)
+        SEEN.append({"method": self.command, "path": self.path,
+                     "headers": {k.lower(): v for k, v in self.headers.items()},
+                     "body": self.rfile.read(n)})
+        self.send_response(200)
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"{}")
+
+    do_GET = do_PATCH = _reply
+    do_POST = _reply_any
 
     def log_message(self, *a):
         pass
@@ -108,6 +123,35 @@ class HttpTest(unittest.TestCase):
             llm.generate_json("s", "p", "episode")
         self.assertNotIsInstance(ctx.exception, TransientLLMError)
         self.assertEqual(len(SEEN), 1)  # no retry on a real error
+
+    def test_vote_closing_requests(self):
+        db = Db(self.cfg)
+        REPLIES[("PATCH", "/rest/v1/polls")] = (200, [{"id": "p1"}])
+        REPLIES[("GET", "/rest/v1/votes")] = (200, [{"option_id": "a"}, {"option_id": "a"},
+                                                    {"option_id": "b"}])
+        self.assertEqual(db.vote_counts("p1"), {"a": 2, "b": 1})
+        self.assertTrue(db.set_winner("p1", "a"))
+        patch = SEEN[-1]
+        # only a poll without a winner may be closed (two workers never both win)
+        self.assertIn("winner_option_id=is.null", patch["path"])
+        self.assertEqual(patch["body"], {"winner_option_id": "a"})
+        REPLIES[("PATCH", "/rest/v1/polls")] = (200, [])
+        self.assertFalse(db.set_winner("p1", "b"))
+        db.due_polls("2026-11-20T10:00:00Z")
+        self.assertIn("closes_at=lte.2026-11-20T10:00:00Z", SEEN[-1]["path"])
+
+    def test_storage_upload_and_signed_url(self):
+        db = Db(self.cfg)
+        db.upload("episodes", "s1/e1.mp4", b"\x00mp4", "video/mp4")
+        up = SEEN[-1]
+        self.assertEqual(up["path"], "/storage/v1/object/episodes/s1/e1.mp4")
+        self.assertEqual(up["headers"]["x-upsert"], "true")
+        self.assertEqual(up["headers"]["content-type"], "video/mp4")
+        self.assertEqual(up["body"], b"\x00mp4")
+        REPLIES[("POST", "/storage/v1/object/sign/character-refs/u/s/c.jpg")] = (
+            200, {"signedURL": "/object/sign/character-refs/u/s/c.jpg?token=t"})
+        url = db.signed_url("character-refs", "u/s/c.jpg")
+        self.assertEqual(url, self.base + "/storage/v1/object/sign/character-refs/u/s/c.jpg?token=t")
 
 
 if __name__ == "__main__":
