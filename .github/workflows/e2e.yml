@@ -67,3 +67,11 @@ jobs:
           POLL_CHECK_SECONDS: "10"
           WORKER_IDLE_SECONDS: "2"
         run: timeout ${{ inputs.seconds }} python -m sos_worker || [ $? -eq 124 ]
+      # The run itself ends by timeout, so check the queue: a failed job turns this red.
+      - name: Job summary
+        if: always()
+        working-directory: worker
+        env:
+          SUPABASE_URL: ${{ inputs.supabase_url }}
+          SUPABASE_SECRET_KEY: ${{ inputs.supabase_key }}
+        run: python -m sos_worker --status

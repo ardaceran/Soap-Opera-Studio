@@ -140,6 +140,18 @@ class HttpTest(unittest.TestCase):
         db.due_polls("2026-11-20T10:00:00Z")
         self.assertIn("closes_at=lte.2026-11-20T10:00:00Z", SEEN[-1]["path"])
 
+    def test_requeue_stale_and_job_counts(self):
+        db = Db(self.cfg)
+        REPLIES[("PATCH", "/rest/v1/jobs")] = (200, [{"id": "j1"}, {"id": "j2"}])
+        self.assertEqual(db.requeue_stale("2026-11-19T13:30:00Z"), 2)
+        patch = SEEN[-1]
+        self.assertIn("status=eq.running", patch["path"])
+        self.assertIn("updated_at=lt.2026-11-19T13:30:00Z", patch["path"])
+        self.assertEqual(patch["body"]["status"], "queued")
+        REPLIES[("GET", "/rest/v1/jobs")] = (200, [{"status": "done"}, {"status": "done"},
+                                                   {"status": "failed"}])
+        self.assertEqual(db.job_counts(), {"done": 2, "failed": 1})
+
     def test_storage_upload_and_signed_url(self):
         db = Db(self.cfg)
         db.upload("episodes", "s1/e1.mp4", b"\x00mp4", "video/mp4")

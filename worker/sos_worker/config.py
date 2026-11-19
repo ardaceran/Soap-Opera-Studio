@@ -62,6 +62,8 @@ class Config:
     # Vote length in minutes; overrides POLL_HOURS when set (e.g. 3 for a live demo).
     poll_minutes: int = 0
     poll_check_seconds: int = 30       # how often the worker looks for finished votes
+    # A job still 'running' after this long was cut off (worker stopped): run it again.
+    stale_job_minutes: int = 20
 
     @staticmethod
     def from_env() -> "Config":
@@ -108,4 +110,5 @@ class Config:
             max_scenes=_int("MEDIA_MAX_SCENES", 0),
             poll_minutes=_int("POLL_MINUTES", 0),
             poll_check_seconds=_int("POLL_CHECK_SECONDS", 30),
+            stale_job_minutes=_int("STALE_JOB_MINUTES", 20),
         )
