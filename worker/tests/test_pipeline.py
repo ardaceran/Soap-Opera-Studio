@@ -34,6 +34,9 @@ class MemoryDb:
     def episode_summaries(self, sid):
         return [dict(number=n, **e) for n, e in sorted(self.episodes.items())]
 
+    def episode_exists(self, sid, number):
+        return number in self.episodes
+
     def poll_winner(self, sid, number):
         return self.winners.get(number)
 
@@ -72,6 +75,17 @@ class PipelineTest(unittest.TestCase):
     def test_unknown_job_type(self):
         with self.assertRaises(NotImplementedError):
             self.pipe.run({"type": "voice", "series_id": "s1"})
+
+
+class HandWrittenEpisodesTest(unittest.TestCase):
+    def test_season_plan_starts_after_hand_written_episodes(self):
+        db = MemoryDb()
+        db.episodes[1] = {"title": "Written by the owner", "summary": "", "scenes": [],
+                          "options": [], "hours": 24}
+        Pipeline(db, FakeLLM(), poll_hours=24).run({"type": "season_plan", "series_id": "s1"})
+        scripts = [j for j in db.jobs if j["type"] == "script"]
+        self.assertEqual(scripts[0]["payload"], {"episode": 2})
+        self.assertEqual(db.episodes[1]["title"], "Written by the owner")
 
 
 class ValidationTest(unittest.TestCase):

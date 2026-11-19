@@ -366,6 +366,10 @@ begin
     select pid, trim(o) from unnest(p_poll_options) o;
   end if;
 
+  -- The worker makes the video (images, voice, captions) like for AI episodes.
+  insert into public.jobs (series_id, episode_id, type, payload)
+  values (p_series_id, eid, 'assemble', jsonb_build_object('episode', num));
+
   return eid;
 end $$;
 revoke all on function public.add_episode(uuid, text, text, text[], text[], int) from public, anon;

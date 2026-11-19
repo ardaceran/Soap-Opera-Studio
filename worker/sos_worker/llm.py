@@ -13,6 +13,7 @@ New providers only need a `generate_json` method.
 import json
 import re
 import time
+import urllib.error
 
 from . import http
 from .config import Config
@@ -27,6 +28,12 @@ class TransientLLMError(LLMError):
 
 
 TRANSIENT_STATUS = (429, 500, 502, 503, 504)
+
+# Text models can take minutes for a long JSON answer; wait longer than for media.
+LLM_TIMEOUT = 300
+
+# A slow or dropped connection is treated like a busy provider: wait and try again.
+NETWORK_ERRORS = (TimeoutError, urllib.error.URLError, ConnectionError)
 
 
 class FakeLLM:
@@ -98,8 +105,13 @@ class ClaudeLLM:
         res = None
         for attempt in range(len(self.waits) + 1):
             try:
-                res = http.request("POST", self.URL, headers, body)
+                res = http.request("POST", self.URL, headers, body, timeout=LLM_TIMEOUT)
                 break
+            except NETWORK_ERRORS as e:
+                if attempt == len(self.waits):
+                    raise TransientLLMError(
+                        f"Claude did not answer ({e}) after {attempt + 1} tries") from None
+                time.sleep(self.waits[attempt])
             except http.HttpError as e:
                 # 529 = Anthropic overloaded
                 if e.status not in TRANSIENT_STATUS + (529,):
@@ -146,8 +158,14 @@ class GeminiLLM:
                     self.URL.format(model=self.model),
                     {"x-goog-api-key": self.api_key},
                     body,
+                    timeout=LLM_TIMEOUT,
                 )
                 break
+            except NETWORK_ERRORS as e:
+                if attempt == len(self.waits):
+                    raise TransientLLMError(
+                        f"Gemini did not answer ({e}) after {attempt + 1} tries") from None
+                time.sleep(self.waits[attempt])
             except http.HttpError as e:
                 if e.status not in TRANSIENT_STATUS:
                     raise LLMError(f"Gemini request failed: {e}") from None

@@ -56,7 +56,11 @@ class Pipeline:
         self.last["cost"] = self._llm_cost()
         plan = story.validate_plan(raw)
         self.db.save_season_plan(series["id"], plan)
-        self.db.enqueue(series["id"], "script", {"episode": 1})
+        # Start after any episodes the owner already wrote by hand, never over them.
+        first = 1
+        while self.db.episode_exists(series["id"], first):
+            first += 1
+        self.db.enqueue(series["id"], "script", {"episode": first})
 
     # Episode script -> publish episode + scenes + poll in one transaction,
     # then queue the video.
