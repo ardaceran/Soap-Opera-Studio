@@ -13,6 +13,7 @@ from .config import Config
 class Db:
     def __init__(self, cfg: Config):
         self.base = cfg.supabase_url + "/rest/v1"
+        self.storage = cfg.supabase_url + "/storage/v1"
         self.headers = {"apikey": cfg.supabase_key}
         # Legacy service_role keys are JWTs and also go in Authorization.
         # New sb_secret_ keys are sent only as apikey.
@@ -45,13 +46,13 @@ class Db:
             return None
         return job
 
-    def finish_job(self, job_id: str, provider: str, cost_usd: float = 0.0):
-        self._update(
-            "jobs",
-            f"id=eq.{job_id}",
-            {"status": "done", "error": None, "provider": provider,
-             "cost_usd": cost_usd, "updated_at": _now()},
-        )
+    def finish_job(self, job_id: str, provider: str, cost_usd: float = 0.0,
+                   episode_id: str = None):
+        values = {"status": "done", "error": None, "provider": provider,
+                  "cost_usd": round(cost_usd, 4), "updated_at": _now()}
+        if episode_id:  # so the episode_costs view counts this job (e.g. the script)
+            values["episode_id"] = episode_id
+        self._update("jobs", f"id=eq.{job_id}", values)
 
     def fail_job(self, job_id: str, error: str, retry: bool):
         self._update(
@@ -116,6 +117,52 @@ class Db:
              "p_poll_options": poll_options, "p_poll_hours": poll_hours},
         )
 
+
+    # ------------------------------------------------------------------ media
+    def get_episode_for_render(self, episode_id: str) -> dict:
+        rows = self._get(
+            f"/episodes?id=eq.{episode_id}"
+            "&select=id,series_id,number,title,"
+            "scenes(id,idx,dialogue,visual_prompt),"
+            "polls(poll_options!poll_options_poll_id_fkey(label)),"
+            "series(id,owner_id,title,genre,setting,"
+            "characters(id,name,role,description,voice_id,ref_image_paths))"
+        )
+        if not rows:
+            raise LookupError(f"episode {episode_id} not found")
+        ep = rows[0]
+        polls = ep.get("polls")
+        if isinstance(polls, list):
+            polls = polls[0] if polls else None
+        ep["poll_options"] = [o["label"] for o in (polls or {}).get("poll_options") or []]
+        ep["scenes"] = sorted(ep.get("scenes") or [], key=lambda s: s["idx"])
+        return ep
+
+    def update_character(self, character_id: str, values: dict):
+        self._update("characters", f"id=eq.{character_id}", values)
+
+    def update_scene(self, scene_id: str, values: dict):
+        self._update("scenes", f"id=eq.{scene_id}", values)
+
+    def set_episode_video(self, episode_id: str, path: str):
+        self._update("episodes", f"id=eq.{episode_id}", {"video_path": path})
+
+    # ------------------------------------------------------------------ storage
+    def upload(self, bucket: str, path: str, data: bytes, content_type: str) -> str:
+        """Upload (or overwrite) a file in Supabase Storage; returns its path."""
+        h = dict(self.headers, **{"x-upsert": "true"})
+        http.raw("POST", f"{self.storage}/object/{bucket}/{path}", h, data,
+                 content_type, timeout=300)
+        return path
+
+    def signed_url(self, bucket: str, path: str, seconds: int = 3600) -> str:
+        """Temporary link to a private file (fal.ai reads the character portrait)."""
+        res = http.request("POST", f"{self.storage}/object/sign/{bucket}/{path}",
+                           self.headers, {"expiresIn": seconds})
+        link = res.get("signedURL") or res.get("signedUrl")
+        if not link:
+            raise LookupError(f"no signed URL for {bucket}/{path}: {res}")
+        return self.storage + link
 
 
 def _now() -> str:

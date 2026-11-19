@@ -11,6 +11,7 @@ import traceback
 from .config import Config
 from .db import Db
 from .llm import TransientLLMError, make_llm
+from .media import make_media
 from .pipeline import Pipeline
 
 
@@ -23,10 +24,16 @@ def main() -> None:
     cfg = Config.from_env()
     db = Db(cfg)
     llm = make_llm(cfg)
-    pipe = Pipeline(db, llm, cfg.poll_hours)
+    images, voice = make_media(cfg)
+    pipe = Pipeline(db, llm, cfg.poll_hours, images, voice,
+                    cfg.video_height, cfg.max_scenes,
+                    (cfg.claude_usd_in, cfg.claude_usd_out))
     log(f"worker started · text model: {llm.name}"
         + (f" ({cfg.gemini_model})" if llm.name == "gemini" else "")
-        + (f" ({cfg.claude_model})" if llm.name == "claude" else ""))
+        + (f" ({cfg.claude_model})" if llm.name == "claude" else "")
+        + f" · images: {images.name} · voice: {voice.name}"
+        + f" · video {cfg.video_height}p"
+        + (f" · first {cfg.max_scenes} scenes only" if cfg.max_scenes else ""))
 
     while True:
         try:
@@ -47,8 +54,9 @@ def main() -> None:
         log(f"start  {label} (attempt {job.get('attempts')})")
         try:
             pipe.run(job)
-            db.finish_job(job["id"], llm.name)
-            log(f"done   {label}")
+            r = pipe.last
+            db.finish_job(job["id"], r["provider"], r["cost"], r["episode_id"])
+            log(f"done   {label} · ${r['cost']:.4f}")
         except Exception as e:
             attempts = int(job.get("attempts") or 1)
             busy = isinstance(e, TransientLLMError)

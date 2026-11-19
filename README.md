@@ -28,7 +28,7 @@ Team: Arda Ceran and Mert.
 | Season plan and episode scripts | Working with the worker (`worker/`): Gemini free tier, or fake sample text without a key |
 | Images, voice, video assembly | Planned |
 | Episode player | Reads scenes from the database (animated stills + captions); real video planned |
-| Cost per episode | Reads the `episode_costs` view (real data once the worker logs job costs) |
+| Cost per episode | Reads the `episode_costs` view; the worker logs the cost of every script, image and voice call |
 
 ## Architecture
 

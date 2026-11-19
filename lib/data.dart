@@ -13,8 +13,9 @@ enum EpisodeStatus { published, voting, rendering, locked }
 
 class Episode {
   const Episode(this.number, this.title, this.summary, this.status,
-      {this.pollId, this.id});
+      {this.pollId, this.id, this.videoUrl});
   final String? id; // database id
+  final String? videoUrl; // generated MP4 (null until the worker has made it)
   final String? pollId; // poll at the end of the episode (if any)
   final int number;
   final String title;
