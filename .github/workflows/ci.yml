@@ -1,0 +1,39 @@
+# Runs on every push and pull request:
+# - app: the Flutter app must analyze, pass its tests and build for the web
+# - worker: the worker's unit tests (real FFmpeg, no API keys needed)
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy project files that live outside lib/
+        run: cp -R needed_files/. .
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - name: Analyze (errors fail the build; warnings are only shown)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - run: flutter build web --release
+
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FFmpeg and the caption font
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Unit tests
+        working-directory: worker
+        run: python -m unittest discover -s tests -v
