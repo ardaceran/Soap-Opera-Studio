@@ -11,7 +11,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import media, story, video
+from . import http, media, story, video
 
 
 class Pipeline:
@@ -92,15 +92,19 @@ class Pipeline:
 
         # 1. Every character keeps one voice and one reference portrait for the whole series.
         chars = {c["name"]: c for c in series.get("characters") or []}
-        used = {c["voice_id"] for c in chars.values() if c.get("voice_id")}
-        for c in chars.values():
-            if not c.get("voice_id"):
-                c["voice_id"] = media.pick_voice(c, used)
+        used = {c["voice_id"] for c in chars.values()
+                if c.get("voice_id") and self.voice.valid_voice(c["voice_id"])}
+        portraits = {}  # name -> jpeg bytes made in this run
+        for i, c in enumerate(chars.values()):
+            # A voice from another provider (e.g. ElevenLabs id, now Cloudflare) is replaced.
+            if not (c.get("voice_id") and self.voice.valid_voice(c["voice_id"])):
+                c["voice_id"] = media.pick_voice(c, used, self.voice, i)
                 used.add(c["voice_id"])
                 self.db.update_character(c["id"], {"voice_id": c["voice_id"]})
             if not c.get("ref_image_paths"):
                 img, usd = self.images.reference(c, series)
                 cost += usd
+                portraits[c["name"]] = img
                 path = self.db.upload("character-refs",
                                       f"{series['owner_id']}/{sid}/{c['id']}.jpg",
                                       img, "image/jpeg")
@@ -114,13 +118,11 @@ class Pipeline:
             for s in scenes:
                 speaker, line = split_dialogue(s.get("dialogue") or "")
                 c = chars.get(speaker)
-                ref_url = None
-                if c and self.images.name != "fake":
-                    ref_url = self.db.signed_url("character-refs", c["ref_image_paths"][0])
+                ref = self._portrait_ref(c, portraits) if c else None
                 img, usd = self.images.scene(s.get("visual_prompt") or line, speaker,
-                                             series, ref_url)
+                                             series, ref)
                 cost += usd
-                mp3, usd = self.voice.speak(line, c["voice_id"] if c else media.NARRATOR_VOICE)
+                mp3, usd = self.voice.speak(line, c["voice_id"] if c else self.voice.narrator)
                 cost += usd
                 n = f"{s['idx']:03d}"
                 (work / f"img{n}.jpg").write_bytes(img)
@@ -142,6 +144,18 @@ class Pipeline:
         # Viewers can only vote after watching, so the vote clock starts now.
         self.db.set_poll_closes(eid, _iso(_now() + self.poll_window))
         self.last["cost"] = cost
+
+    def _portrait_ref(self, c: dict, portraits: dict):
+        """The speaker's portrait in the form the image provider wants (link or bytes)."""
+        kind = getattr(self.images, "ref_kind", None)
+        if kind == "url":
+            return self.db.signed_url("character-refs", c["ref_image_paths"][0])
+        if kind == "bytes":
+            if c["name"] not in portraits:
+                link = self.db.signed_url("character-refs", c["ref_image_paths"][0])
+                portraits[c["name"]] = http.download(link)
+            return portraits[c["name"]]
+        return None
 
     # Finished votes -> winner -> script job for the next episode.
     def close_due_polls(self, now=None) -> list:

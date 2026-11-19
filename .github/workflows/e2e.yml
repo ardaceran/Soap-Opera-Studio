@@ -20,6 +20,12 @@ on:
       seconds:
         description: "How long the worker runs"
         default: "240"
+      media:
+        description: "fake = free placeholders; cloudflare = real images and voice from the
+          CLOUDFLARE_* repository secrets (free daily allowance)"
+        type: choice
+        options: [fake, cloudflare]
+        default: fake
 
 jobs:
   e2e:
@@ -45,7 +51,9 @@ jobs:
           SUPABASE_URL: ${{ inputs.supabase_url }}
           SUPABASE_SECRET_KEY: ${{ inputs.supabase_key }}
           LLM_PROVIDER: fake
-          MEDIA_PROVIDER: fake
+          MEDIA_PROVIDER: ${{ inputs.media }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           VIDEO_HEIGHT: "640"
           MEDIA_MAX_SCENES: "3"
           POLL_MINUTES: "1"

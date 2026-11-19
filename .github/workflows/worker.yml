@@ -3,8 +3,9 @@
 #
 # Keys come from the repository's GitHub Secrets (Settings -> Secrets and variables ->
 # Actions). They are never shown in the logs. Needed: SUPABASE_URL, SUPABASE_SECRET_KEY.
-# Optional: ANTHROPIC_API_KEY, FAL_KEY, ELEVENLABS_API_KEY (without them the worker uses
-# free sample text, placeholder images and quiet audio).
+# Optional: GEMINI_API_KEY or ANTHROPIC_API_KEY (text), CLOUDFLARE_ACCOUNT_ID +
+# CLOUDFLARE_API_TOKEN (free images and voice), FAL_KEY, ELEVENLABS_API_KEY (paid).
+# Without them the worker uses free sample text, placeholder images and quiet audio.
 name: Run worker
 
 on:
@@ -48,6 +49,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FAL_KEY: ${{ secrets.FAL_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           VIDEO_HEIGHT: ${{ inputs.quality == 'full' && '1920' || '960' }}
           MEDIA_MAX_SCENES: ${{ inputs.quality == 'full' && '0' || '3' }}
           POLL_MINUTES: ${{ inputs.poll_minutes }}
