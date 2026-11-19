@@ -32,10 +32,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # Prebuilt FFmpeg (apt on the runners can take 10+ minutes). DejaVu is preinstalled.
-      - uses: FedericoCarboni/setup-ffmpeg@v3
-        with:
-          ffmpeg-version: release
+      # Ubuntu's FFmpeg has the drawtext and ass filters the worker uses
+      # (the prebuilt static builds lack drawtext). Skipping man-db keeps apt fast.
+      - name: Install FFmpeg and the caption font
+        timeout-minutes: 8
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core
       - name: Unit tests
         working-directory: worker
         run: python -m unittest discover -s tests -v
