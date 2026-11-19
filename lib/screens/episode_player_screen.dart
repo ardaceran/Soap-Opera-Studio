@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../repository.dart';
 import '../theme.dart';
+import 'video_episode_view.dart';
 import 'vote_sheet.dart';
 
 class _PlayerScene {
@@ -84,7 +85,10 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
       }
     });
     final id = widget.episode.id;
-    if (id != null) {
+    if (widget.episode.videoUrl != null) {
+      // The worker made a video: play it instead of the still-image preview.
+      _loading = false;
+    } else if (id != null) {
       _loadScenes(id);
     } else {
       _loading = false;
@@ -126,13 +130,33 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen>
         }
       }
     }
-    if (mounted && !_paused && _c.value < 1) {
+    // The still-image preview continues after the vote; a video keeps its own state.
+    if (mounted &&
+        widget.episode.videoUrl == null &&
+        !_paused &&
+        _c.value < 1) {
       _c.forward();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final videoUrl = widget.episode.videoUrl;
+    if (videoUrl != null) {
+      final hasPoll = widget.episode.pollId != null;
+      return VideoEpisodeView(
+        url: videoUrl,
+        label:
+            'AI-generated · ${widget.series.title} E${widget.episode.number}',
+        onVote: hasPoll ? _openVote : null,
+        onFinished: () {
+          if (hasPoll && !_voteShown) {
+            _voteShown = true;
+            _openVote();
+          }
+        },
+      );
+    }
     if (_loading) {
       return const Scaffold(
         backgroundColor: Colors.black,

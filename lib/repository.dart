@@ -124,7 +124,14 @@ class Repo {
       status,
       pollId: poll?['id'] as String?,
       id: e['id'] as String?,
+      videoUrl: _videoUrl(e['video_path'] as String?),
     );
+  }
+
+  /// Public link of a generated episode video (Storage bucket "episodes" is public).
+  static String? _videoUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    return _db.storage.from('episodes').getPublicUrl(path);
   }
 
   static Series _fromRow(Map<String, dynamic> r) {
