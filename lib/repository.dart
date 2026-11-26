@@ -251,6 +251,20 @@ class Repo {
     ];
   }
 
+  /// What is being generated right now, for anyone who can see the series
+  /// (supabase function series_progress; no errors or costs).
+  static Future<List<JobInfo>> fetchSeriesProgress(String seriesId) async {
+    final rows = await _db.rpc('series_progress', params: {'p_series_id': seriesId});
+    return [
+      for (final r in (rows as List))
+        JobInfo(
+          type: r['type'] as String,
+          status: r['status'] as String,
+          episodeNumber: (r['episode'] as num?)?.toInt(),
+        ),
+    ];
+  }
+
   // ----------------------------------------------------------------- polls
 
   static const String _pollSelect =
