@@ -34,6 +34,17 @@ class Repo {
 
   static Future<void> signOut() => _db.auth.signOut();
 
+  /// One-tap guest session for live audience voting (Supabase anonymous sign-in).
+  /// Needs "Allow anonymous sign-ins" in Supabase Auth settings. The KVKK consent
+  /// travels as metadata like in signUp; the database trigger stores its time.
+  static Future<void> joinAsGuest() async {
+    await _db.auth.signInAnonymously(
+      data: {'kvkk_consent': true, 'display_name': 'Guest viewer'},
+    );
+  }
+
+  static bool get isGuest => _db.auth.currentUser?.isAnonymous ?? false;
+
   // --------------------------------------------------------------- profile
 
   static String? get email => _db.auth.currentUser?.email;

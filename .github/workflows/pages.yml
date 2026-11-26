@@ -1,0 +1,45 @@
+# Publishes the app as a website on GitHub Pages: https://<owner>.github.io/<repo>/
+# One-time setup in the repository: Settings -> Pages -> Source: "GitHub Actions".
+# Then: Actions tab -> "Deploy web app" -> Run workflow (run again after code changes).
+# The web app talks to the same Supabase project as the phone app (lib/config.dart).
+name: Deploy web app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy project files that live outside lib/
+        run: cp -R needed_files/. .
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build for the web (served from /<repo>/)
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

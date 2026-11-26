@@ -74,8 +74,25 @@ class _VoteSheetState extends State<_VoteSheet> {
   Future<void> _vote(String optionId) async {
     if (_picked != null || _busy || _closed) return;
     if (!Repo.signedIn) {
-      setState(() => _msg = 'You need to sign in to vote.');
-      return;
+      // Live audience: vote without an account (anonymous guest session).
+      final ok = await _askGuestConsent();
+      if (!ok || !mounted) return;
+      setState(() {
+        _busy = true;
+        _msg = null;
+      });
+      try {
+        await Repo.joinAsGuest();
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _msg = 'Guest voting is not available right now. Please sign in to vote.';
+          });
+        }
+        return;
+      }
+      if (mounted) setState(() => _busy = false);
     }
     setState(() {
       _busy = true;
@@ -89,6 +106,52 @@ class _VoteSheetState extends State<_VoteSheet> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Asks a viewer without an account to vote as a guest, with the KVKK consent.
+  Future<bool> _askGuestConsent() async {
+    var consent = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Vote as a guest'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'No account needed. We create an anonymous guest session so '
+                'each viewer has one vote. No email or name is stored.',
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: consent,
+                onChanged: (v) => setLocal(() => consent = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'I have read the privacy notice and consent to the processing '
+                  'of my data (KVKK).',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: consent ? () => Navigator.of(ctx).pop(true) : null,
+              child: const Text('Vote'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return ok ?? false;
   }
 
   /// "1 d 4 h", "2:05:09" or "04:37" until the vote closes.
