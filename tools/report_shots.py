@@ -51,7 +51,7 @@ with sync_playwright() as p:
     ok = tap(page, "Browse as guest")
     if not ok:
         # Flutter draws on a canvas: tap where the button is on a 390x844 screen.
-        page.mouse.click(195, 576)
+        page.mouse.click(195, 604)
         ok = True
     if ok:
         page.wait_for_timeout(5000)
