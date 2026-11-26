@@ -75,6 +75,14 @@ flutter run                                    # or: flutter run -d chrome
 Build an Android APK: run `flutter create . --platforms=android,ios` once, then `flutter build apk`.
 See `needed_files/README.md` for details.
 
+## Live web app
+
+The app also runs in the browser, published with GitHub Pages
+(`.github/workflows/pages.yml`, Actions -> **Deploy web app**). Viewers can open it from a
+QR code, watch an episode and vote **as a guest**: one tap, KVKK consent, an anonymous
+Supabase session, one vote per viewer. Guest voting needs **Authentication -> Sign In /
+Providers -> Allow anonymous sign-ins** turned on in Supabase.
+
 ## Roadmap (Demo Day)
 
 - [ ] A 3-episode mini series with consistent characters
