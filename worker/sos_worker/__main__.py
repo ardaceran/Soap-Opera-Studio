@@ -5,7 +5,9 @@ Run:  python -m sos_worker          (keeps running)
       python -m sos_worker --status (prints job counts; exit code 1 if any job failed)
 """
 
+import signal
 import sys
+import threading
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -19,6 +21,39 @@ from .pipeline import Pipeline
 
 def log(msg: str) -> None:
     print(time.strftime("%H:%M:%S"), msg, flush=True)
+
+
+HEARTBEAT_SECONDS = 60
+
+
+class Heartbeat:
+    """While a job runs, touch its row every minute so that other workers can tell
+    a long job (a slow model, a long video) from one whose worker died."""
+
+    def __init__(self, db, job_id: str, every: float = HEARTBEAT_SECONDS):
+        self.db, self.job_id, self.every = db, job_id, every
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._beat, daemon=True)
+
+    def _beat(self):
+        while not self._stop.wait(self.every):
+            try:
+                self.db.touch_job(self.job_id)
+            except Exception:
+                pass  # a missed beat is fine; the next one tries again
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        return False
+
+
+def _stop_on_sigterm(signum, frame):
+    # `docker compose` stops the worker with SIGTERM: treat it like Ctrl+C.
+    raise KeyboardInterrupt
 
 
 def requeue_stale(db, cfg) -> None:
@@ -53,6 +88,7 @@ def main() -> None:
         + (f" · first {cfg.max_scenes} scenes only" if cfg.max_scenes else "")
         + f" · votes last {cfg.poll_minutes or cfg.poll_hours * 60} min")
 
+    signal.signal(signal.SIGTERM, _stop_on_sigterm)
     last_poll_check = 0.0
 
     while True:
@@ -84,10 +120,20 @@ def main() -> None:
         label = f"{job['type']} · series {job['series_id'][:8]}"
         log(f"start  {label} (attempt {job.get('attempts')})")
         try:
-            pipe.run(job)
+            with Heartbeat(db, job["id"]):
+                pipe.run(job)
             r = pipe.last
             db.finish_job(job["id"], r["provider"], r["cost"], r["episode_id"])
             log(f"done   {label} · ${r['cost']:.4f}")
+        except KeyboardInterrupt:
+            # Stopping mid-job: hand the job straight back to the queue.
+            try:
+                db.release_job(job["id"], job.get("attempts"))
+                log(f"stopped · {label} put back in the queue")
+            except Exception as e:
+                log(f"stopped · could not put {label} back ({e}); "
+                    "it is requeued automatically after a few minutes")
+            return
         except Exception as e:
             attempts = int(job.get("attempts") or 1)
             busy = isinstance(e, TransientLLMError)
@@ -103,4 +149,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        log("stopped")

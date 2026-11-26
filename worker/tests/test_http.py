@@ -91,6 +91,16 @@ class HttpTest(unittest.TestCase):
         self.assertIn("id=eq.j1", SEEN[1]["path"])
         self.assertEqual(SEEN[1]["body"]["status"], "done")
 
+    def test_release_and_touch_only_affect_running_jobs(self):
+        db = Db(self.cfg)
+        db.release_job("j9", 3)
+        db.touch_job("j9")
+        self.assertIn("id=eq.j9&status=eq.running", SEEN[0]["path"])
+        self.assertEqual(SEEN[0]["body"]["status"], "queued")
+        self.assertEqual(SEEN[0]["body"]["attempts"], 2)  # the interrupted try does not count
+        self.assertIn("status=eq.running", SEEN[1]["path"])
+        self.assertEqual(set(SEEN[1]["body"]), {"updated_at"})
+
     def test_poll_winner(self):
         REPLIES[("GET", "/rest/v1/episodes")] = (200, [{"polls": [{
             "winner_option_id": "o2",
