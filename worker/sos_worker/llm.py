@@ -136,10 +136,12 @@ class GeminiLLM:
     name = "gemini"
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    def __init__(self, api_key: str, model: str, waits=(10, 30, 60)):
+    def __init__(self, api_key: str, model: str, waits=(10, 30, 60), thinking: str = "low"):
         self.api_key = api_key
         self.model = model
         self.waits = waits  # seconds to wait before each retry when busy
+        # Less thinking = a much faster answer; long thinking is what timed out.
+        self.thinking = thinking
 
     def generate_json(self, system: str, prompt: str, kind: str) -> dict:
         body = {
@@ -150,6 +152,8 @@ class GeminiLLM:
                 "temperature": 0.9,
             },
         }
+        if self.thinking:
+            body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": self.thinking}
         res = None
         for attempt in range(len(self.waits) + 1):
             try:
@@ -167,6 +171,11 @@ class GeminiLLM:
                         f"Gemini did not answer ({e}) after {attempt + 1} tries") from None
                 time.sleep(self.waits[attempt])
             except http.HttpError as e:
+                if e.status == 400 and "thinkingConfig" in body["generationConfig"]:
+                    # This model does not take the thinking setting: send without it.
+                    del body["generationConfig"]["thinkingConfig"]
+                    self.thinking = ""
+                    continue
                 if e.status not in TRANSIENT_STATUS:
                     raise LLMError(f"Gemini request failed: {e}") from None
                 if attempt == len(self.waits):
@@ -209,7 +218,7 @@ def make_llm(cfg: Config):
     if p == "claude":
         raise SystemExit("LLM_PROVIDER=claude but ANTHROPIC_API_KEY is empty.")
     if p in ("gemini", "auto") and cfg.gemini_api_key:
-        return GeminiLLM(cfg.gemini_api_key, cfg.gemini_model)
+        return GeminiLLM(cfg.gemini_api_key, cfg.gemini_model, thinking=cfg.gemini_thinking)
     if p == "gemini":
         raise SystemExit("LLM_PROVIDER=gemini but GEMINI_API_KEY is empty.")
     return FakeLLM()

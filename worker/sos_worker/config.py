@@ -34,6 +34,8 @@ class Config:
     idle_seconds: int
     max_attempts: int
     anthropic_api_key: str = ""
+    # Gemini 3 "thinks" before answering; "low" answers much faster (minimal/low/medium/high, or "" for the model default).
+    gemini_thinking: str = "low"
     claude_model: str = "claude-sonnet-5-5"
     claude_max_tokens: int = 8000
     # USD per million tokens, for the cost report. Check the Anthropic pricing page.
@@ -82,6 +84,7 @@ class Config:
             llm_provider=os.environ.get("LLM_PROVIDER", "auto").strip().lower(),
             gemini_api_key=os.environ.get("GEMINI_API_KEY", "").strip(),
             gemini_model=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip(),
+            gemini_thinking=_str("GEMINI_THINKING", "low").lower(),
             poll_hours=_int("POLL_HOURS", 24),
             idle_seconds=_int("WORKER_IDLE_SECONDS", 5),
             max_attempts=_int("WORKER_MAX_ATTEMPTS", 3),

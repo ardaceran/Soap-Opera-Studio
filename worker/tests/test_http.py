@@ -187,6 +187,25 @@ class TimeoutTest(unittest.TestCase):
         self.assertEqual(req.call_count, 2)
         self.assertEqual(req.call_args.kwargs.get("timeout"), llm_mod.LLM_TIMEOUT)
 
+    def test_gemini_thinks_little_and_drops_setting_if_refused(self):
+        from unittest import mock
+        from sos_worker import llm as llm_mod
+        g = llm_mod.GeminiLLM("k", "m", waits=(0,))
+        bodies = []
+        ok = {"candidates": [{"content": {"parts": [{"text": '{"ok": 1}'}]}}]}
+
+        def fake(method, url, headers, body, timeout=None):
+            bodies.append(json.loads(json.dumps(body)))
+            if "thinkingConfig" in body["generationConfig"]:
+                raise llm_mod.http.HttpError(400, "thinking_level not supported")
+            return ok
+
+        with mock.patch.object(llm_mod.http, "request", side_effect=fake):
+            self.assertEqual(g.generate_json("s", "p", "episode"), {"ok": 1})
+        self.assertEqual(bodies[0]["generationConfig"]["thinkingConfig"],
+                         {"thinkingLevel": "low"})
+        self.assertNotIn("thinkingConfig", bodies[1]["generationConfig"])
+
 
 if __name__ == "__main__":
     unittest.main()
