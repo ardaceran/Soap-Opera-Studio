@@ -62,6 +62,17 @@ class Db:
              "error": error[:1000], "updated_at": _now()},
         )
 
+    def touch_job(self, job_id: str):
+        """Heartbeat: a running job says it is still alive."""
+        self._update("jobs", f"id=eq.{job_id}&status=eq.running", {"updated_at": _now()})
+
+    def release_job(self, job_id: str, attempts: int):
+        """Give an unfinished job back to the queue (the worker is stopping);
+        the interrupted try does not count as an attempt."""
+        self._update("jobs", f"id=eq.{job_id}&status=eq.running",
+                     {"status": "queued", "attempts": max(int(attempts or 1) - 1, 0),
+                      "updated_at": _now()})
+
     def requeue_stale(self, cutoff_iso: str) -> int:
         """Jobs left 'running' since before cutoff (the worker was stopped mid-job) go back
         to the queue. Returns how many."""
