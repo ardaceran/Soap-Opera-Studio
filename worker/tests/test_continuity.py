@@ -35,8 +35,9 @@ class EpisodePromptTest(unittest.TestCase):
 class LooksTest(unittest.TestCase):
     def test_scene_prompt_carries_the_look_of_named_characters(self):
         p = media.scene_prompt("Elif and Can at a window", "Narrator", SERIES, False)
-        self.assertIn("Elif: young woman, long dark hair, green raincoat", p)
-        self.assertNotIn("Can:", p)  # no description yet, nothing to add
+        self.assertIn("Elif (young woman, long dark hair, green raincoat)", p)
+        self.assertIn("Exactly 2 people in the frame", p)
+        self.assertIn("; Can.", p)  # no description yet: just the name
 
     def test_plan_looks_are_kept_and_cleaned(self):
         plan = story.validate_plan({"logline": "l", "episodes": [{"title": "a"}],

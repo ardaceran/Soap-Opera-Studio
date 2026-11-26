@@ -130,7 +130,9 @@ class Pipeline:
             for s in scenes:
                 speaker, line = split_dialogue(s.get("dialogue") or "")
                 c = chars.get(speaker)
-                ref = self._portrait_ref(c, portraits) if c else None
+                ref = (self._portrait_ref(c, portraits)
+                       if c and media.use_portrait(s.get("visual_prompt") or "", speaker, series)
+                       else None)
                 try:
                     img, usd = self.images.scene(s.get("visual_prompt") or line, speaker,
                                                  series, ref)

@@ -8,6 +8,10 @@ SYSTEM = (
 )
 
 MIN_SCENES, MAX_SCENES = 8, 20
+
+# Shot types the writer picks from; the picture prompt turns each into framing words.
+SHOTS = ["establishing", "wide", "medium", "close-up", "over-the-shoulder",
+         "detail", "silhouette"]
 MAX_LINE = 220
 
 
@@ -34,9 +38,12 @@ Characters:
 
 Also fix how each character looks, so every picture of the season shows the same
 person: age, build, face, hair, and one outfit they keep wearing (one sentence each).
+And fix one visual style for the whole season: colour palette, light, mood
+(one sentence, e.g. "cold blue-grey palette, stormy night light, wet reflections").
 
 Return JSON:
 {{"logline": "one sentence",
+  "visual_style": "one sentence",
   "looks": {{"<character name>": "how they look", ...}},
   "episodes": [{{"number": 1, "title": "...", "outline": "2-3 sentences"}}, ... 5 items]}}"""
 
@@ -79,12 +86,18 @@ Continuity (very important):
 Rules:
 - 12 to 15 scenes, about 60-90 seconds in total; one short spoken line per scene (max 25 words).
 - "speaker" is one of: {names}, Narrator.
-- "visual" describes the still image for the scene (place, who is visible, mood), no text in the image.
+- "shot" is one of: {", ".join(SHOTS)}. Vary it like a TV editor: never the same shot
+  twice in a row, open with an establishing shot, use close-ups for strong emotions.
+- "visual" describes the still image: name EVERY person who is visible (only people
+  from the cast) and nobody else; where they are in the frame; place, light, mood.
+  No text in the image.
+- Narrator scenes show the place, the weather or an object (establishing, wide,
+  detail or silhouette shots), not a character's face.
 - End with a cliffhanger and give 3 short options for what happens next (viewers vote on them).
 
 Return JSON:
 {{"title": "...", "summary": "2 sentences for the series bible",
-  "scenes": [{{"speaker": "...", "line": "...", "visual": "..."}}],
+  "scenes": [{{"speaker": "...", "line": "...", "shot": "...", "visual": "..."}}],
   "poll_options": ["...", "...", "..."]}}"""
 
 
@@ -95,6 +108,7 @@ def validate_plan(plan: dict) -> dict:
     looks = plan.get("looks") if isinstance(plan.get("looks"), dict) else {}
     return {
         "logline": str(plan.get("logline", ""))[:300],
+        "visual_style": " ".join(str(plan.get("visual_style", "")).split())[:300],
         "looks": {str(k)[:60]: " ".join(str(v).split())[:300]
                   for k, v in looks.items() if str(v).strip()},
         "episodes": [
@@ -116,9 +130,14 @@ def validate_episode(ep: dict, character_names: list) -> dict:
         if not line:
             continue
         speaker = allowed.get(str(s.get("speaker", "")).strip().lower(), "Narrator")
+        shot = str(s.get("shot", "")).strip().lower()
+        if shot not in SHOTS:
+            shot = "establishing" if speaker == "Narrator" else "medium"
+        visual = " ".join(str(s.get("visual", "")).split())[:400]
         scenes.append({
             "dialogue": f"{speaker}: {line}",
-            "visual": " ".join(str(s.get("visual", "")).split())[:400],
+            # The shot travels inside the visual text ("Close-up: ..."): no schema change.
+            "visual": f"{shot.capitalize()}: {visual}",
         })
     if len(scenes) < MIN_SCENES:
         raise StoryError(f"only {len(scenes)} usable scenes (need {MIN_SCENES})")
