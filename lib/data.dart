@@ -57,11 +57,32 @@ class JobInfo {
       {required this.type,
       required this.status,
       this.error,
-      this.episodeNumber});
+      this.episodeNumber,
+      this.updatedAt});
   final String type; // season_plan, script, image, video, voice, assemble, moderation
   final String status; // queued, running, done, failed
   final String? error;
   final int? episodeNumber;
+  final DateTime? updatedAt;
+
+  bool get active => status == 'queued' || status == 'running';
+
+  /// One line for the series page, e.g. "Writing episode 2…".
+  String get label {
+    final ep = episodeNumber == null ? '' : ' $episodeNumber';
+    switch (type) {
+      case 'season_plan':
+        return 'Writing the season plan';
+      case 'script':
+        return 'Writing episode$ep';
+      case 'moderation':
+        return 'Checking episode$ep';
+      case 'assemble':
+        return 'Making the video for episode$ep';
+      default:
+        return 'Working on episode$ep';
+    }
+  }
 }
 
 class Series {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data.dart';
 import '../theme.dart';
@@ -16,8 +17,117 @@ class SeriesDetailScreen extends StatefulWidget {
 
 class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   late Series series = widget.series;
+  List<JobInfo> _jobs = const [];
+  int _finished = -1; // done + failed jobs seen last time; a change means news
+  Timer? _timer;
 
   bool get _isOwner => Repo.userId != null && Repo.userId == series.ownerId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Generation jobs are only visible to the owner (database rules).
+    if (_isOwner) {
+      _checkJobs();
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) => _checkJobs());
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  /// Polls the generation jobs; when one finishes, reloads the series so the
+  /// new episode or its video shows up without the user doing anything.
+  Future<void> _checkJobs() async {
+    try {
+      final jobs = await Repo.fetchSeriesJobs(series.id);
+      final finished = jobs.where((j) => !j.active).length;
+      final changed = _finished >= 0 && finished != _finished;
+      _finished = finished;
+      if (!mounted) return;
+      setState(() => _jobs = jobs);
+      if (changed) await _reload();
+    } catch (_) {
+      // Network hiccup: the next tick tries again.
+    }
+  }
+
+  /// The job to show: a running one first, else the oldest queued one, else a
+  /// failure if it is the most recent thing that happened.
+  JobInfo? get _current {
+    final running = _jobs.where((j) => j.status == 'running');
+    if (running.isNotEmpty) return running.first;
+    final queued = _jobs.where((j) => j.status == 'queued');
+    if (queued.isNotEmpty) return queued.first;
+    if (_jobs.isNotEmpty) {
+      final last = _jobs.reduce((a, b) =>
+          (b.updatedAt ?? DateTime(0)).isAfter(a.updatedAt ?? DateTime(0)) ? b : a);
+      if (last.status == 'failed') return last;
+    }
+    return null;
+  }
+
+  bool _videoInProgress(Episode e) => _jobs.any(
+      (j) => j.type == 'assemble' && j.active && j.episodeNumber == e.number);
+
+  Widget _statusBanner() {
+    final j = _current;
+    if (j == null) return const SizedBox.shrink();
+    final failed = j.status == 'failed';
+    final waiting = j.status == 'queued';
+    final color = failed ? Colors.red.shade300 : kGold;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(30),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(120)),
+      ),
+      child: Row(
+        children: [
+          if (failed)
+            Icon(Icons.error_outline, color: color)
+          else
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: color),
+            ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  failed
+                      ? '${j.label} failed'
+                      : waiting
+                          ? '${j.label} (waiting in the queue)…'
+                          : '${j.label}…',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  failed
+                      ? (j.error ?? 'Unknown error').split('\n').first
+                      : waiting
+                          ? 'Starts as soon as the generation worker is free.'
+                          : 'This page updates by itself when it is ready.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _reload() async {
     try {
@@ -154,13 +264,16 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
               ),
             ),
           ),
+          SliverToBoxAdapter(child: _statusBanner()),
           if (series.episodes.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Text(
                   _isOwner
-                      ? 'No episodes yet. Tap "Add episode" to write the first one.'
+                      ? (_jobs.any((j) => j.active)
+                          ? 'The first episode is on its way.'
+                          : 'No episodes yet. Tap "Add episode" to write the first one.')
                       : 'No episodes yet.',
                   style: const TextStyle(color: Colors.white54),
                 ),
@@ -186,8 +299,12 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                       ),
                       title: Text(e.title,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(e.summary),
-                      trailing: Tag(statusLabel(e.status), statusColor(e.status)),
+                      subtitle: Text(_videoInProgress(e)
+                          ? 'Video in progress…'
+                          : e.summary),
+                      trailing: _videoInProgress(e)
+                          ? const Tag('Making video', kBlue)
+                          : Tag(statusLabel(e.status), statusColor(e.status)),
                     ),
                   ),
                 );

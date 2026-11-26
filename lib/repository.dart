@@ -232,7 +232,7 @@ class Repo {
   static Future<List<JobInfo>> fetchSeriesJobs(String seriesId) async {
     final rows = await _db
         .from('jobs')
-        .select('type, status, error, episodes(number)')
+        .select('type, status, error, payload, updated_at, episodes(number)')
         .eq('series_id', seriesId)
         .order('created_at');
     return [
@@ -241,7 +241,12 @@ class Repo {
           type: r['type'] as String,
           status: r['status'] as String,
           error: r['error'] as String?,
-          episodeNumber: (r['episodes'] as Map?)?['number'] as int?,
+          // Script jobs have no episode row yet: the number is in the payload.
+          episodeNumber: (r['episodes'] as Map?)?['number'] as int? ??
+              ((r['payload'] as Map?)?['episode'] as num?)?.toInt(),
+          updatedAt: r['updated_at'] == null
+              ? null
+              : DateTime.tryParse(r['updated_at'] as String),
         ),
     ];
   }
