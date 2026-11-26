@@ -1,11 +1,19 @@
 # Publishes the app as a website on GitHub Pages: https://<owner>.github.io/<repo>/
 # One-time setup in the repository: Settings -> Pages -> Source: "GitHub Actions".
 # Then: Actions tab -> "Deploy web app" -> Run workflow (run again after code changes).
-# The web app talks to the same Supabase project as the phone app (lib/config.dart).
+# The web app talks to the Supabase project in lib/config.dart, or to the one given
+# in the run's inputs (e.g. a separate demo project).
 name: Deploy web app
 
 on:
   workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: "Supabase project URL for this build (empty = the one in lib/config.dart)"
+        default: ""
+      supabase_key:
+        description: "Its publishable key (sb_publishable_..., not the secret key)"
+        default: ""
 
 permissions:
   contents: read
@@ -29,7 +37,16 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build for the web (served from /<repo>/)
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+        env:
+          SB_URL: ${{ inputs.supabase_url }}
+          SB_KEY: ${{ inputs.supabase_key }}
+        run: |
+          defs=""
+          if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
+            defs="--dart-define=SUPABASE_URL=$SB_URL --dart-define=SUPABASE_KEY=$SB_KEY"
+            echo "Building against $SB_URL"
+          fi
+          flutter build web --release --base-href "/${{ github.event.repository.name }}/" $defs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
