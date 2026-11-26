@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import '../data.dart';
 import '../repository.dart';
@@ -31,8 +32,10 @@ class _VoteSheetState extends State<_VoteSheet> {
   bool _busy = false;
   String? _msg;
   Timer? _timer;
+  Timer? _tick; // redraws the countdown every second
+  late DateTime _closesAt = widget.poll.closesAt;
 
-  bool get _closed => !widget.poll.closesAt.isAfter(DateTime.now());
+  bool get _closed => !_closesAt.isAfter(DateTime.now());
   int get _total => _counts.values.fold<int>(0, (a, b) => a + b);
 
   @override
@@ -40,11 +43,15 @@ class _VoteSheetState extends State<_VoteSheet> {
     super.initState();
     _refresh();
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _refresh());
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _tick?.cancel();
     super.dispose();
   }
 
@@ -52,10 +59,12 @@ class _VoteSheetState extends State<_VoteSheet> {
     try {
       final c = await Repo.fetchPollResults(widget.poll.id);
       final mine = Repo.signedIn ? await Repo.myVote(widget.poll.id) : null;
+      final closes = await Repo.fetchPollClosesAt(widget.poll.id);
       if (!mounted) return;
       setState(() {
         _counts = c;
         _picked = mine;
+        _closesAt = closes;
       });
     } catch (_) {
       // Temporary network error: retried on the next refresh.
@@ -82,12 +91,54 @@ class _VoteSheetState extends State<_VoteSheet> {
     }
   }
 
-  String _closesText() {
-    final d = widget.poll.closesAt.difference(DateTime.now());
-    if (d.isNegative) return 'Voting closed';
-    if (d.inDays >= 1) return 'Voting closes in ${d.inDays} d ${d.inHours % 24} h';
-    if (d.inHours >= 1) return 'Voting closes in ${d.inHours} h ${d.inMinutes % 60} min';
-    return 'Voting closes in ${d.inMinutes + 1} min';
+  /// "1 d 4 h", "2:05:09" or "04:37" until the vote closes.
+  String _left() {
+    final d = _closesAt.difference(DateTime.now());
+    String two(int n) => n.toString().padLeft(2, '0');
+    if (d.inDays >= 1) return '${d.inDays} d ${d.inHours % 24} h';
+    if (d.inHours >= 1) {
+      return '${d.inHours}:${two(d.inMinutes % 60)}:${two(d.inSeconds % 60)}';
+    }
+    return '${two(d.inMinutes)}:${two(d.inSeconds % 60)}';
+  }
+
+  Widget _countdown() {
+    final closed = _closed;
+    final urgent = !closed && _closesAt.difference(DateTime.now()).inSeconds < 60;
+    final color = closed ? kGrey : (urgent ? Colors.red.shade300 : kGold);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withAlpha(30),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(120)),
+      ),
+      child: Row(
+        children: [
+          Icon(closed ? Icons.lock_clock : Icons.timer_outlined, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              closed
+                  ? 'Voting closed · the winning option writes the next episode'
+                  : 'Voting closes in',
+              style: TextStyle(color: closed ? Colors.white70 : Colors.white),
+            ),
+          ),
+          if (!closed)
+            Text(
+              _left(),
+              style: TextStyle(
+                color: color,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _tile(PollOption o) {
@@ -179,6 +230,8 @@ class _VoteSheetState extends State<_VoteSheet> {
             'The winning option goes into the next episode\'s script.',
             style: TextStyle(color: Colors.white70),
           ),
+          const SizedBox(height: 12),
+          _countdown(),
           const SizedBox(height: 16),
           for (final o in poll.options) _tile(o),
           const SizedBox(height: 4),
@@ -190,8 +243,8 @@ class _VoteSheetState extends State<_VoteSheet> {
             ),
           Text(
             _picked != null
-                ? 'Your vote is saved. $_total votes in total · results update live. ${_closesText()}.'
-                : '${_closesText()}. Each user can vote once.',
+                ? 'Your vote is saved. $_total votes in total · results update live.'
+                : 'Each user can vote once.',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
