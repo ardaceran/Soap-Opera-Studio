@@ -41,6 +41,9 @@ class Pipeline:
             self.assemble(job)
         else:
             raise NotImplementedError(f"job type '{kind}' is not supported yet")
+        model = getattr(self.llm, "last_model", None)
+        if kind != "assemble" and isinstance(model, str):
+            self.last["provider"] = f"{self.llm.name}:{model}"  # e.g. a backup model answered
 
     def _llm_cost(self) -> float:
         usage = getattr(self.llm, "last_usage", None) or {}

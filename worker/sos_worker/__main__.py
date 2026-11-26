@@ -124,7 +124,7 @@ def main() -> None:
                 pipe.run(job)
             r = pipe.last
             db.finish_job(job["id"], r["provider"], r["cost"], r["episode_id"])
-            log(f"done   {label} · ${r['cost']:.4f}")
+            log(f"done   {label} · {r['provider']} · ${r['cost']:.4f}")
         except KeyboardInterrupt:
             # Stopping mid-job: hand the job straight back to the queue.
             try:

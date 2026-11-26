@@ -206,6 +206,34 @@ class TimeoutTest(unittest.TestCase):
                          {"thinkingLevel": "low"})
         self.assertNotIn("thinkingConfig", bodies[1]["generationConfig"])
 
+    def test_gemini_quota_used_up_moves_to_backup_model(self):
+        from unittest import mock
+        from sos_worker import llm as llm_mod
+        g = llm_mod.GeminiLLM("k", "main", waits=(0,), fallbacks=("gone", "lite"))
+        urls = []
+        ok = {"candidates": [{"content": {"parts": [{"text": '{"ok": 1}'}]}}]}
+
+        def fake(method, url, headers, body, timeout=None):
+            urls.append(url.split("/models/")[1].split(":")[0])
+            if "/main:" in url:
+                raise llm_mod.http.HttpError(429, "RESOURCE_EXHAUSTED")
+            if "/gone:" in url:
+                raise llm_mod.http.HttpError(404, "not found")
+            return ok
+
+        with mock.patch.object(llm_mod.http, "request", side_effect=fake):
+            self.assertEqual(g.generate_json("s", "p", "episode"), {"ok": 1})
+            self.assertEqual(urls, ["main", "gone", "lite"])
+            self.assertEqual(g.last_model, "lite")
+            urls.clear()
+            g.generate_json("s", "p", "episode")  # main rests, gone is skipped for good
+            self.assertEqual(urls, ["lite"])
+        g2 = llm_mod.GeminiLLM("k", "main", waits=(0,))
+        with mock.patch.object(llm_mod.http, "request",
+                               side_effect=llm_mod.http.HttpError(429, "quota")):
+            with self.assertRaises(llm_mod.TransientLLMError):
+                g2.generate_json("s", "p", "episode")
+
 
 if __name__ == "__main__":
     unittest.main()
