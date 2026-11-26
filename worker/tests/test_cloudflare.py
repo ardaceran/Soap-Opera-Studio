@@ -55,6 +55,25 @@ class CloudflareImagesTest(unittest.TestCase):
                 self.cf.scene("x", "Narrator", SERIES)
 
     @unittest.skipUnless(HAS_FFMPEG, "ffmpeg not installed")
+    def test_flagged_scene_retries_without_portrait_then_without_people(self):
+        flagged = http.HttpError(400, '{"errors":[{"message":"AiError: Your output has been '
+                                      'flagged. Please choose another prompt"}]}')
+        ok = json.dumps({"result": {"image": base64.b64encode(b"IMG").decode()}}).encode()
+        with mock.patch.object(http, "raw", side_effect=[flagged, flagged, ok]) as req, \
+                mock.patch.object(media, "shrink_jpeg", return_value=b"small"):
+            out, _ = self.cf.scene("Two people at a window", "Elif", SERIES, ref=b"portrait")
+        self.assertEqual(out, b"IMG")
+        self.assertEqual(req.call_count, 3)
+        last = form_fields(req.call_args.args[3], req.call_args.args[4])
+        self.assertNotIn("input_image_0", last)
+        self.assertIn(b"no people", last["prompt"])
+
+    def test_flagged_everywhere_raises_content_flagged(self):
+        flagged = http.HttpError(400, '{"errors":[{"message":"output has been flagged"}]}')
+        with mock.patch.object(http, "raw", side_effect=flagged):
+            with self.assertRaises(media.ContentFlagged):
+                self.cf.scene("x", "Elif", SERIES)
+
     def test_scene_sends_the_portrait_as_a_small_reference(self):
         portrait, _ = media.FakeImages().reference({"name": "Defne"}, SERIES)  # 576x1024
         with mock.patch.object(http, "raw", return_value=b"\xff\xd8IMG") as req:

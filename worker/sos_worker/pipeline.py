@@ -123,8 +123,12 @@ class Pipeline:
                 speaker, line = split_dialogue(s.get("dialogue") or "")
                 c = chars.get(speaker)
                 ref = self._portrait_ref(c, portraits) if c else None
-                img, usd = self.images.scene(s.get("visual_prompt") or line, speaker,
-                                             series, ref)
+                try:
+                    img, usd = self.images.scene(s.get("visual_prompt") or line, speaker,
+                                                 series, ref)
+                except media.ContentFlagged:
+                    # One refused picture must not sink the whole episode.
+                    img, usd = media.FakeImages().scene(line, speaker, series, None)
                 cost += usd
                 mp3, usd = self.voice.speak(line, c["voice_id"] if c else self.voice.narrator)
                 cost += usd
