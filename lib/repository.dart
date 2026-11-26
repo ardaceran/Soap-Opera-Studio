@@ -298,6 +298,12 @@ class Repo {
     return rows.map<PollInfo>((r) => _pollFrom(r)).toList();
   }
 
+  /// The poll's current closing time (the worker moves it when the video is ready).
+  static Future<DateTime> fetchPollClosesAt(String id) async {
+    final r = await _db.from('polls').select('closes_at').eq('id', id).single();
+    return DateTime.parse(r['closes_at'] as String);
+  }
+
   static Future<PollInfo> fetchPollById(String id) async {
     final r = await _db.from('polls').select(_pollSelect).eq('id', id).single();
     return _pollFrom(r);
