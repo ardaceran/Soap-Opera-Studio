@@ -56,6 +56,12 @@ class Pipeline:
         self.last["cost"] = self._llm_cost()
         plan = story.validate_plan(raw)
         self.db.save_season_plan(series["id"], plan)
+        # Characters the owner did not describe get the look the writer fixed for them.
+        looks = {k.lower(): v for k, v in (plan.get("looks") or {}).items()}
+        for c in series.get("characters") or []:
+            look = looks.get(c["name"].lower())
+            if look and not c.get("description") and c.get("id"):
+                self.db.update_character(c["id"], {"description": look})
         # Start after any episodes the owner already wrote by hand, never over them.
         first = 1
         while self.db.episode_exists(series["id"], first):
@@ -70,9 +76,11 @@ class Pipeline:
         previous = [e for e in self.db.episode_summaries(series["id"])
                     if e["number"] < number]
         winner = self.db.poll_winner(series["id"], number - 1) if number > 1 else None
+        last_scenes = (self.db.episode_scenes(series["id"], number - 1)
+                       if number > 1 and hasattr(self.db, "episode_scenes") else [])
         raw = self.llm.generate_json(
             story.SYSTEM,
-            story.episode_prompt(series, number, previous, winner),
+            story.episode_prompt(series, number, previous, winner, last_scenes),
             "episode",
         )
         self.last["cost"] = self._llm_cost()
