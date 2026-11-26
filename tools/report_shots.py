@@ -48,17 +48,19 @@ with sync_playwright() as p:
     page.wait_for_timeout(6000)
     shot(page, "01_login")
     enable_semantics(page)
-    if tap(page, "Browse as guest"):
+    ok = tap(page, "Browse as guest")
+    if not ok:
+        # Flutter draws on a canvas: tap where the button is on a 390x844 screen.
+        page.mouse.click(195, 576)
+        ok = True
+    if ok:
         page.wait_for_timeout(5000)
         shot(page, "02_home")
         # open the first series card, if any
-        cards = page.get_by_role("button")
-        print("buttons on home:", [cards.nth(i).inner_text()[:40] for i in range(min(cards.count(), 12))])
-        for i in range(cards.count()):
-            t = cards.nth(i).inner_text()
-            if "Lighthouse" in t or "Red Villa" in t:
-                cards.nth(i).click()
-                page.wait_for_timeout(5000)
-                shot(page, "03_series")
-                break
+        # open the first series card (upper part of the list)
+        page.mouse.click(195, 260)
+        page.wait_for_timeout(6000)
+        shot(page, "03_series")
+        page.mouse.wheel(0, 500)
+        shot(page, "04_series_scrolled")
     b.close()
