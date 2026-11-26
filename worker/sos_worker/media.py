@@ -47,6 +47,15 @@ class MediaError(Exception):
     pass
 
 
+class ContentFlagged(MediaError):
+    """The provider's safety filter refused this prompt or its output."""
+
+
+def _is_flagged(text: str) -> bool:
+    t = (text or "").lower()
+    return "flagged" in t or "nsfw" in t or "safety" in t
+
+
 def character_prompt(c: dict, series: dict) -> str:
     desc = c.get("description") or ""
     return (f"Head-and-shoulders portrait of {c['name']}, {c.get('role') or 'a character'} "
@@ -223,6 +232,8 @@ def _cf_payload(raw: bytes, key: str) -> bytes:
     except json.JSONDecodeError:
         return raw
     if isinstance(res, dict) and res.get("success") is False:
+        if _is_flagged(json.dumps(res.get("errors"))):
+            raise ContentFlagged(f"Cloudflare flagged it: {res.get('errors')}")
         raise MediaError(f"Cloudflare: {res.get('errors')}")
     body = res.get("result", res) if isinstance(res, dict) else {}
     b64 = body.get(key) if isinstance(body, dict) else None
@@ -260,6 +271,8 @@ class CloudflareImages:
         try:
             raw = http.raw("POST", self.url, self.headers, body, ctype, timeout=300)
         except http.HttpError as e:
+            if _is_flagged(e.body):
+                raise ContentFlagged(f"Cloudflare flagged the image: {e}") from None
             raise MediaError(f"Cloudflare image failed: {e}") from None
         return _cf_payload(raw, "image")
 
@@ -270,8 +283,16 @@ class CloudflareImages:
         if ref:
             prompt = (f"The person in image 0 is {speaker}. Keep their face, hair and look "
                       f"exactly the same. {scene_prompt(visual, speaker, series, False)}")
-            return self._run(prompt, ref), self.usd_per_image
-        return self._run(scene_prompt(visual, speaker, series, False)), self.usd_per_image
+            try:
+                return self._run(prompt, ref), self.usd_per_image
+            except ContentFlagged:
+                pass  # the safety filter sometimes misfires on edits: try without the portrait
+        try:
+            return self._run(scene_prompt(visual, speaker, series, False)), self.usd_per_image
+        except ContentFlagged:
+            # Last try: only the place and the mood, no people.
+            calm = f"Empty scene, no people. Setting: {series['setting']}. {STYLE}"
+            return self._run(calm), self.usd_per_image
 
 
 AURA_VOICES = {
