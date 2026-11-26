@@ -74,6 +74,15 @@ class CloudflareImagesTest(unittest.TestCase):
             with self.assertRaises(media.ContentFlagged):
                 self.cf.scene("x", "Elif", SERIES)
 
+    def test_flagged_portrait_retries_with_a_plain_prompt(self):
+        flagged = http.HttpError(400, '{"errors":[{"message":"output has been flagged"}]}')
+        with mock.patch.object(http, "raw", side_effect=[flagged, b"\xff\xd8IMG"]) as req:
+            out, _ = self.cf.reference({"name": "Leyla", "role": "mother",
+                                        "description": "52, silver hair"}, SERIES)
+        self.assertEqual(out, b"\xff\xd8IMG")
+        last = form_fields(req.call_args.args[3], req.call_args.args[4])
+        self.assertNotIn(b"silver", last["prompt"])
+
     def test_scene_sends_the_portrait_as_a_small_reference(self):
         portrait, _ = media.FakeImages().reference({"name": "Defne"}, SERIES)  # 576x1024
         with mock.patch.object(http, "raw", return_value=b"\xff\xd8IMG") as req:

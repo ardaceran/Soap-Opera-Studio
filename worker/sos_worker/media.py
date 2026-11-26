@@ -339,7 +339,14 @@ class CloudflareImages:
         return _cf_payload(raw, "image")
 
     def reference(self, character: dict, series: dict):
-        return self._run(character_prompt(character, series)), self.usd_per_image
+        try:
+            return self._run(character_prompt(character, series)), self.usd_per_image
+        except ContentFlagged:
+            # The safety filter misfires on some descriptions: a plainer portrait prompt.
+            plain = (f"Friendly head-and-shoulders portrait photo of an adult, "
+                     f"{character.get('role') or 'a character'}, in {series['setting']}. "
+                     f"Fully clothed, smiling, plain background. {STYLE}")
+            return self._run(plain), self.usd_per_image
 
     def scene(self, visual: str, speaker: str, series: dict, ref=None):
         if ref:

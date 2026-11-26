@@ -117,7 +117,11 @@ class Pipeline:
                 used.add(c["voice_id"])
                 self.db.update_character(c["id"], {"voice_id": c["voice_id"]})
             if not c.get("ref_image_paths"):
-                img, usd = self.images.reference(c, series)
+                try:
+                    img, usd = self.images.reference(c, series)
+                except media.ContentFlagged:
+                    # A refused portrait must not stop the episode: a plain placeholder.
+                    img, usd = media.FakeImages().reference(c, series)
                 cost += usd
                 portraits[c["name"]] = img
                 path = self.db.upload("character-refs",
