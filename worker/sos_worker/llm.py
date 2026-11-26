@@ -133,17 +133,54 @@ class ClaudeLLM:
 
 
 class GeminiLLM:
+    """Gemini with backup models: the free tier gives each model its own daily quota
+    (e.g. only 20 requests/day for gemini-3.8-flash), so when one model says 429
+    (quota used up) or 404 (not available) the next model in the list answers."""
     name = "gemini"
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    COOLDOWN = 15 * 60  # seconds a model that hit its quota is skipped
 
-    def __init__(self, api_key: str, model: str, waits=(10, 30, 60), thinking: str = "low"):
+    def __init__(self, api_key: str, model: str, waits=(10, 30, 60), thinking: str = "low",
+                 fallbacks=()):
         self.api_key = api_key
         self.model = model
+        fallbacks = fallbacks if isinstance(fallbacks, (list, tuple)) else ()
+        self.models = [model] + [m for m in fallbacks if m and m != model]
         self.waits = waits  # seconds to wait before each retry when busy
         # Less thinking = a much faster answer; long thinking is what timed out.
         self.thinking = thinking
+        self.no_thinking = set()  # models that refused the thinking setting
+        self.resting = {}         # model -> time until which it is skipped
+        self.last_model = None
 
     def generate_json(self, system: str, prompt: str, kind: str) -> dict:
+        now = time.time()
+        ready = [m for m in self.models if self.resting.get(m, 0) <= now]
+        last_error, statuses = None, []
+        for model in ready:
+            try:
+                res = self._ask(model, system, prompt)
+            except _QuotaUsedUp as e:
+                last_error = e
+                statuses.append(e.status)
+                self.resting[model] = time.time() + (
+                    10 ** 9 if e.status == 404 else self.COOLDOWN)
+                continue
+            self.last_model = model
+            try:
+                text = res["candidates"][0]["content"]["parts"][0]["text"]
+            except (KeyError, IndexError, TypeError):
+                reason = (res or {}).get("promptFeedback") or (res or {}).get("candidates")
+                raise LLMError(f"Gemini returned no text (blocked or empty): {reason}") from None
+            return parse_json(text)
+        tried = ", ".join(ready) or "none (all resting)"
+        if statuses and all(st == 404 for st in statuses):
+            raise LLMError(f"Gemini model not found ({tried}); check GEMINI_MODEL.")
+        raise TransientLLMError(
+            f"Gemini quota used up for every model ({tried}); "
+            f"free daily limits reset at midnight Pacific time. Last error: {last_error}")
+
+    def _ask(self, model: str, system: str, prompt: str) -> dict:
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
@@ -152,42 +189,39 @@ class GeminiLLM:
                 "temperature": 0.9,
             },
         }
-        if self.thinking:
+        if self.thinking and model not in self.no_thinking:
             body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": self.thinking}
-        res = None
-        for attempt in range(len(self.waits) + 1):
+        attempt = 0
+        while True:
             try:
-                res = http.request(
-                    "POST",
-                    self.URL.format(model=self.model),
-                    {"x-goog-api-key": self.api_key},
-                    body,
-                    timeout=LLM_TIMEOUT,
-                )
-                break
+                return http.request("POST", self.URL.format(model=model),
+                                    {"x-goog-api-key": self.api_key}, body,
+                                    timeout=LLM_TIMEOUT)
             except NETWORK_ERRORS as e:
-                if attempt == len(self.waits):
+                if attempt >= len(self.waits):
                     raise TransientLLMError(
                         f"Gemini did not answer ({e}) after {attempt + 1} tries") from None
-                time.sleep(self.waits[attempt])
             except http.HttpError as e:
                 if e.status == 400 and "thinkingConfig" in body["generationConfig"]:
                     # This model does not take the thinking setting: send without it.
                     del body["generationConfig"]["thinkingConfig"]
-                    self.thinking = ""
+                    self.no_thinking.add(model)
                     continue
+                if e.status in (404, 429):
+                    raise _QuotaUsedUp(e.status, f"{model}: HTTP {e.status}") from None
                 if e.status not in TRANSIENT_STATUS:
                     raise LLMError(f"Gemini request failed: {e}") from None
-                if attempt == len(self.waits):
+                if attempt >= len(self.waits):
                     raise TransientLLMError(
                         f"Gemini busy (HTTP {e.status}) after {attempt + 1} tries") from None
-                time.sleep(self.waits[attempt])
-        try:
-            text = res["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError, TypeError):
-            reason = (res or {}).get("promptFeedback") or (res or {}).get("candidates")
-            raise LLMError(f"Gemini returned no text (blocked or empty): {reason}") from None
-        return parse_json(text)
+            time.sleep(self.waits[attempt])
+            attempt += 1
+
+
+class _QuotaUsedUp(Exception):
+    def __init__(self, status: int, msg: str):
+        super().__init__(msg)
+        self.status = status
 
 
 def parse_json(text: str) -> dict:
@@ -218,7 +252,8 @@ def make_llm(cfg: Config):
     if p == "claude":
         raise SystemExit("LLM_PROVIDER=claude but ANTHROPIC_API_KEY is empty.")
     if p in ("gemini", "auto") and cfg.gemini_api_key:
-        return GeminiLLM(cfg.gemini_api_key, cfg.gemini_model, thinking=cfg.gemini_thinking)
+        return GeminiLLM(cfg.gemini_api_key, cfg.gemini_model, thinking=cfg.gemini_thinking,
+                         fallbacks=cfg.gemini_fallbacks)
     if p == "gemini":
         raise SystemExit("LLM_PROVIDER=gemini but GEMINI_API_KEY is empty.")
     return FakeLLM()
