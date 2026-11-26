@@ -18,7 +18,8 @@ class SeriesDetailScreen extends StatefulWidget {
 class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   late Series series = widget.series;
   List<JobInfo> _jobs = const [];
-  int _finished = -1; // done + failed jobs seen last time; a change means news
+  int _finished = -1; // owner: done + failed jobs seen last time; a change means news
+  int _activeSeen = -1; // viewer: active steps seen last time
   Timer? _timer;
 
   bool get _isOwner => Repo.userId != null && Repo.userId == series.ownerId;
@@ -26,11 +27,9 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Generation jobs are only visible to the owner (database rules).
-    if (_isOwner) {
-      _checkJobs();
-      _timer = Timer.periodic(const Duration(seconds: 4), (_) => _checkJobs());
-    }
+    // The owner sees every job (with errors); viewers see only what is in progress.
+    _checkJobs();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) => _checkJobs());
   }
 
   @override
@@ -43,10 +42,20 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   /// new episode or its video shows up without the user doing anything.
   Future<void> _checkJobs() async {
     try {
-      final jobs = await Repo.fetchSeriesJobs(series.id);
-      final finished = jobs.where((j) => !j.active).length;
-      final changed = _finished >= 0 && finished != _finished;
-      _finished = finished;
+      final jobs = _isOwner
+          ? await Repo.fetchSeriesJobs(series.id)
+          : await Repo.fetchSeriesProgress(series.id);
+      bool changed;
+      if (_isOwner) {
+        final finished = jobs.where((j) => !j.active).length;
+        changed = _finished >= 0 && finished != _finished;
+        _finished = finished;
+      } else {
+        // A step left the list: something new is ready.
+        final active = jobs.where((j) => j.active).length;
+        changed = _activeSeen >= 0 && active < _activeSeen;
+        _activeSeen = active;
+      }
       if (!mounted) return;
       setState(() => _jobs = jobs);
       if (changed) await _reload();
@@ -72,6 +81,21 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
 
   bool _videoInProgress(Episode e) => _jobs.any(
       (j) => j.type == 'assemble' && j.active && j.episodeNumber == e.number);
+
+  /// Friendlier words for viewers.
+  String _viewerLabel(JobInfo j) {
+    final n = j.episodeNumber;
+    switch (j.type) {
+      case 'season_plan':
+        return 'The story is being planned…';
+      case 'script':
+        return n == null ? 'A new episode is on its way…' : 'Episode $n is on its way…';
+      case 'assemble':
+        return n == null ? 'A new video is on its way…' : 'The video of episode $n is almost ready…';
+      default:
+        return 'Something new is on its way…';
+    }
+  }
 
   Widget _statusBanner() {
     final j = _current;
@@ -103,11 +127,13 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  failed
-                      ? '${j.label} failed'
-                      : waiting
-                          ? '${j.label} (waiting in the queue)…'
-                          : '${j.label}…',
+                  !_isOwner
+                      ? _viewerLabel(j)
+                      : failed
+                          ? '${j.label} failed'
+                          : waiting
+                              ? '${j.label} (waiting in the queue)…'
+                              : '${j.label}…',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),

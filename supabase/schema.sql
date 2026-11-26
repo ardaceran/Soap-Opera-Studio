@@ -437,3 +437,18 @@ revoke all on function public.worker_publish_episode(uuid, int, text, text, json
   from public, anon, authenticated;
 grant execute on function public.worker_publish_episode(uuid, int, text, text, jsonb, text[], int)
   to service_role;
+
+-- What is being generated right now (for viewers; no errors or costs).
+create or replace function public.series_progress(p_series_id uuid)
+returns table (type text, status text, episode int)
+language sql stable security definer set search_path = public as $$
+  select j.type, j.status, coalesce(e.number, (j.payload ->> 'episode')::int)
+    from public.jobs j
+    left join public.episodes e on e.id = j.episode_id
+   where j.series_id = p_series_id
+     and j.status in ('queued', 'running')
+     and (public.is_series_owner(p_series_id) or public.series_has_published(p_series_id))
+   order by j.created_at;
+$$;
+revoke all on function public.series_progress(uuid) from public;
+grant execute on function public.series_progress(uuid) to anon, authenticated;
