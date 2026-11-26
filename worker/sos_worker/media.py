@@ -27,7 +27,7 @@ from pathlib import Path
 
 from . import http
 
-STYLE = ("cinematic still from a Turkish TV drama, dramatic soft lighting, "
+STYLE = ("cinematic still from a prestige TV drama, dramatic soft lighting, "
          "shallow depth of field, photorealistic, vertical 9:16 frame, "
          "no text, no captions, no watermark")
 
@@ -47,6 +47,37 @@ FRAMING = {
     "silhouette": "silhouette against bright light, face not visible, strong shapes",
 }
 CAPTION_SPACE = "keep the bottom third of the frame calm and darker"
+
+
+SET_TAG = re.compile(r"\s*\[set:\s*([^\]]+)\]\s*$", re.I)
+
+
+def split_set(visual: str):
+    """'Wide: rain on the house [set: Courtyard]' -> ('Wide: rain on the house', 'Courtyard')."""
+    m = SET_TAG.search(visual or "")
+    if not m:
+        return (visual or "").strip(), None
+    return (visual[:m.start()]).strip(), m.group(1).strip()
+
+
+def set_description(name, series: dict):
+    plan = series.get("season_plan") or {}
+    sets = plan.get("sets") if isinstance(plan, dict) else None
+    if not name or not isinstance(sets, dict):
+        return None
+    for k, v in sets.items():
+        if k.lower() == name.lower():
+            return v
+    return None
+
+
+def set_prompt(name: str, description: str, series: dict) -> str:
+    """Reference picture of a recurring place: no people, the whole room or view."""
+    plan = series.get("season_plan") or {}
+    look = plan.get("visual_style") if isinstance(plan, dict) else ""
+    return (f"Wide establishing view of {name}: {description}. Part of {series['setting']}. "
+            f"No people. The whole space is visible, clear layout."
+            + (f" Look of the series: {look}." if look else "") + f" {STYLE}")
 
 
 def split_shot(visual: str):
@@ -103,13 +134,15 @@ def character_prompt(c: dict, series: dict) -> str:
 def use_portrait(visual: str, speaker: str, series: dict) -> bool:
     """The portrait helps keep a face, but an edit model copies it into the frame:
     use it only when the speaker is the one person in a medium or close shot."""
-    shot, text = split_shot(visual)
+    shot, text = split_shot(split_set(visual)[0])
     shown = people_in(text, speaker, series)
     return (shot in (None, "medium", "close-up") and len(shown) == 1
             and shown[0]["name"] == speaker)
 
 
 def scene_prompt(visual: str, speaker: str, series: dict, has_ref: bool) -> str:
+    visual, set_name = split_set(visual)
+    place = set_description(set_name, series)
     shot, text = split_shot(visual)
     no_people = shot in ("establishing", "detail")
     people = [] if no_people else people_in(text, speaker, series)
@@ -125,8 +158,10 @@ def scene_prompt(visual: str, speaker: str, series: dict, has_ref: bool) -> str:
     framing = FRAMING.get(shot) or "subject on the left or right third, not centred"
     plan = series.get("season_plan") or {}
     look = plan.get("visual_style") if isinstance(plan, dict) else ""
+    where = (f"Location: {set_name}, always the same place: {place}."
+             if place else f"Setting: {series['setting']}.")
     return (f"{keep}{text}. {who} Framing: {framing}; {CAPTION_SPACE}. "
-            f"Setting: {series['setting']}."
+            f"{where}"
             + (f" Look of the series: {look}." if look else "")
             + f" {STYLE}")
 
@@ -166,8 +201,17 @@ class FalImages:
         })
         return img, self.usd_per_ref
 
-    def scene(self, visual: str, speaker: str, series: dict, ref_url=None):
-        """Scene still -> (jpeg bytes, cost). With ref_url the speaker keeps their face."""
+    def set_reference(self, name: str, description: str, series: dict):
+        img = self._run(self.ref_model, {
+            "prompt": set_prompt(name, description, series),
+            "image_size": "portrait_16_9", "output_format": "jpeg",
+            "enable_safety_checker": True,
+        })
+        return img, self.usd_per_ref
+
+    def scene(self, visual: str, speaker: str, series: dict, ref_url=None, set_ref=None):
+        """Scene still -> (jpeg bytes, cost). With ref_url the speaker keeps their face.
+        (Kontext takes one image, so the set is kept by its description only.)"""
         if ref_url:
             img = self._run(self.scene_model, {
                 "prompt": scene_prompt(visual, speaker, series, True),
@@ -242,8 +286,11 @@ class FakeImages:
         return self._card(f"{character['name']}\n({character.get('role') or ''})",
                           COLORS[hash(character["name"]) % len(COLORS)]), 0.0
 
-    def scene(self, visual, speaker, series, ref_url=None):
-        return self._card(f"[{speaker}]\n{visual}",
+    def set_reference(self, name, description, series):
+        return self._card(f"SET\n{name}", "0x333333"), 0.0
+
+    def scene(self, visual, speaker, series, ref_url=None, set_ref=None):
+        return self._card(f"[{speaker}]\n{split_set(visual)[0]}",
                           COLORS[hash(speaker) % len(COLORS)]), 0.0
 
 
@@ -324,10 +371,10 @@ class CloudflareImages:
         self.usd_per_image = usd_per_image
         self.width, self.height = width, height
 
-    def _run(self, prompt: str, ref: bytes = None) -> bytes:
+    def _run(self, prompt: str, *refs) -> bytes:
         files = {}
-        if ref:
-            files["input_image_0"] = ("ref.jpg", shrink_jpeg(ref), "image/jpeg")
+        for i, ref in enumerate(r for r in refs if r):
+            files[f"input_image_{i}"] = (f"ref{i}.jpg", shrink_jpeg(ref), "image/jpeg")
         body, ctype = _multipart(
             {"prompt": prompt[:2000], "width": self.width, "height": self.height}, files)
         try:
@@ -348,20 +395,39 @@ class CloudflareImages:
                      f"Fully clothed, smiling, plain background. {STYLE}")
             return self._run(plain), self.usd_per_image
 
-    def scene(self, visual: str, speaker: str, series: dict, ref=None):
-        if ref:
-            prompt = (f"The person in image 0 is {speaker}. Keep their face, hair and look "
-                      f"exactly the same. {scene_prompt(visual, speaker, series, False)}")
-            try:
-                return self._run(prompt, ref), self.usd_per_image
-            except ContentFlagged:
-                pass  # the safety filter sometimes misfires on edits: try without the portrait
+    def set_reference(self, name: str, description: str, series: dict):
+        """Reference picture of a recurring place, made once per series."""
         try:
-            return self._run(scene_prompt(visual, speaker, series, False)), self.usd_per_image
+            return self._run(set_prompt(name, description, series)), self.usd_per_image
         except ContentFlagged:
-            # Last try: only the place and the mood, no people.
-            calm = f"Empty scene, no people. Setting: {series['setting']}. {STYLE}"
-            return self._run(calm), self.usd_per_image
+            plain = f"Empty interior or landscape, no people: {description}. {STYLE}"
+            return self._run(plain), self.usd_per_image
+
+    def scene(self, visual: str, speaker: str, series: dict, ref=None, set_ref=None):
+        """Scene still. ref = the speaker's portrait (keeps the face), set_ref = the
+        place's reference picture (keeps the background)."""
+        base = scene_prompt(visual, speaker, series, False)
+        place = ("keep the place exactly the same: same architecture, walls, furniture, "
+                 "windows and colours; only the camera angle may change")
+        tries = []
+        if ref and set_ref:
+            tries.append((f"The person in image 0 is {speaker}: keep their face, hair and look "
+                          f"exactly the same. Image 1 shows the location: {place}. {base}",
+                          (ref, set_ref)))
+        if ref:
+            tries.append((f"The person in image 0 is {speaker}. Keep their face, hair and look "
+                          f"exactly the same. {base}", (ref,)))
+        if set_ref:
+            tries.append((f"Image 0 shows the location: {place}. {base}", (set_ref,)))
+        tries.append((base, ()))
+        for prompt, refs in tries:
+            try:
+                return self._run(prompt, *refs), self.usd_per_image
+            except ContentFlagged:
+                continue  # the safety filter sometimes misfires on edits: try the next way
+        # Last try: only the place and the mood, no people.
+        calm = f"Empty scene, no people. Setting: {series['setting']}. {STYLE}"
+        return self._run(calm), self.usd_per_image
 
 
 AURA_VOICES = {

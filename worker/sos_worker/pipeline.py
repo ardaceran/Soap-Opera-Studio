@@ -88,7 +88,8 @@ class Pipeline:
         )
         self.last["cost"] = self._llm_cost()
         names = [c["name"] for c in series.get("characters") or []]
-        ep = story.validate_episode(raw, names)
+        plan = series.get("season_plan") or {}
+        ep = story.validate_episode(raw, names, list((plan.get("sets") or {}).keys()))
         episode_id = self.db.publish_episode(
             series["id"], number, ep["title"], ep["summary"],
             ep["scenes"], ep["poll_options"], self.poll_hours)
@@ -131,6 +132,7 @@ class Pipeline:
                 self.db.update_character(c["id"], {"ref_image_paths": [path]})
 
         scenes = ep["scenes"][: self.max_scenes] if self.max_scenes else ep["scenes"]
+        set_pics = {}  # set name -> reference picture bytes (keeps backgrounds the same)
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
             parts = []
@@ -140,9 +142,12 @@ class Pipeline:
                 ref = (self._portrait_ref(c, portraits)
                        if c and media.use_portrait(s.get("visual_prompt") or "", speaker, series)
                        else None)
+                set_ref, usd = self._set_ref(series, s.get("visual_prompt") or "", set_pics)
+                cost += usd
                 try:
+                    extra = {"set_ref": set_ref} if set_ref else {}
                     img, usd = self.images.scene(s.get("visual_prompt") or line, speaker,
-                                                 series, ref)
+                                                 series, ref, **extra)
                 except media.ContentFlagged:
                     # One refused picture must not sink the whole episode.
                     img, usd = media.FakeImages().scene(line, speaker, series, None)
@@ -169,6 +174,36 @@ class Pipeline:
         # Viewers can only vote after watching, so the vote clock starts now.
         self.db.set_poll_closes(eid, _iso(_now() + self.poll_window))
         self.last["cost"] = cost
+
+    def _set_ref(self, series: dict, visual: str, set_pics: dict):
+        """(reference picture of the scene's set, cost). Made once per set and series,
+        saved in Storage and listed in season_plan["set_refs"]."""
+        if getattr(self.images, "ref_kind", None) != "bytes" or not hasattr(self.images, "set_reference"):
+            return None, 0.0
+        name = media.split_set(visual)[1]
+        desc = media.set_description(name, series)
+        if not desc:
+            return None, 0.0
+        if name in set_pics:
+            return set_pics[name], 0.0
+        plan = series.get("season_plan") or {}
+        refs = plan.setdefault("set_refs", {})
+        if refs.get(name):
+            link = self.db.signed_url("character-refs", refs[name])
+            set_pics[name] = http.download(link)
+            return set_pics[name], 0.0
+        try:
+            img, usd = self.images.set_reference(name, desc, series)
+        except media.ContentFlagged:
+            return None, 0.0
+        slug = "".join(ch if ch.isalnum() else "-" for ch in name.lower()).strip("-")[:40]
+        path = self.db.upload("character-refs",
+                              f"{series['owner_id']}/{series['id']}/set-{slug}.jpg",
+                              img, "image/jpeg")
+        refs[name] = path
+        self.db.save_season_plan(series["id"], plan)
+        set_pics[name] = img
+        return img, usd
 
     def _portrait_ref(self, c: dict, portraits: dict):
         """The speaker's portrait in the form the image provider wants (link or bytes)."""
