@@ -131,6 +131,14 @@ def character_prompt(c: dict, series: dict) -> str:
             f"Looking at the camera, neutral expression, plain background. {STYLE}")
 
 
+def visible_people(visual: str, speaker: str, series: dict) -> list:
+    """Characters seen in the frame (none in establishing / detail shots)."""
+    shot, text = split_shot(split_set(visual)[0])
+    if shot in ("establishing", "detail"):
+        return []
+    return people_in(text, speaker, series)
+
+
 def use_portrait(visual: str, speaker: str, series: dict) -> bool:
     """The portrait helps keep a face, but an edit model copies it into the frame:
     use it only when the speaker is the one person in a medium or close shot."""
@@ -403,23 +411,33 @@ class CloudflareImages:
             plain = f"Empty interior or landscape, no people: {description}. {STYLE}"
             return self._run(plain), self.usd_per_image
 
-    def scene(self, visual: str, speaker: str, series: dict, ref=None, set_ref=None):
-        """Scene still. ref = the speaker's portrait (keeps the face), set_ref = the
-        place's reference picture (keeps the background)."""
+    def scene(self, visual: str, speaker: str, series: dict, ref=None, set_ref=None,
+              people=None):
+        """Scene still. people = [(name, portrait)] of everyone visible (keeps every face),
+        ref = the speaker's portrait when people is not given, set_ref = the place's
+        reference picture (keeps the background). At most 4 pictures in total."""
         base = scene_prompt(visual, speaker, series, False)
         place = ("keep the place exactly the same: same architecture, walls, furniture, "
                  "windows and colours; only the camera angle may change")
+        if people is None and ref:
+            people = [(speaker, ref)]
+        people = [(n, p) for n, p in (people or []) if p][:3]
+
+        def faces(items):
+            return " ".join(f"The person in image {i} is {n}: keep their face, hair, age "
+                            f"and outfit exactly the same." for i, (n, _) in enumerate(items))
+
         tries = []
-        if ref and set_ref:
-            tries.append((f"The person in image 0 is {speaker}: keep their face, hair and look "
-                          f"exactly the same. Image 1 shows the location: {place}. {base}",
-                          (ref, set_ref)))
-        if ref:
-            tries.append((f"The person in image 0 is {speaker}. Keep their face, hair and look "
-                          f"exactly the same. {base}", (ref,)))
+        if people and set_ref:
+            tries.append((f"{faces(people)} Image {len(people)} shows the location: {place}. "
+                          f"Do not copy the portraits as they are: pose the people naturally "
+                          f"in the scene. {base}", [p for _, p in people] + [set_ref]))
+        if people:
+            tries.append((f"{faces(people)} Pose them naturally in the scene. {base}",
+                          [p for _, p in people]))
         if set_ref:
-            tries.append((f"Image 0 shows the location: {place}. {base}", (set_ref,)))
-        tries.append((base, ()))
+            tries.append((f"Image 0 shows the location: {place}. {base}", [set_ref]))
+        tries.append((base, []))
         for prompt, refs in tries:
             try:
                 return self._run(prompt, *refs), self.usd_per_image

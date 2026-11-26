@@ -50,6 +50,20 @@ class PromptTest(unittest.TestCase):
 
 
 class CloudflareSetTest(unittest.TestCase):
+    def test_every_visible_person_and_the_set_are_sent(self):
+        cf = media.CloudflareImages("a", "t", "m", 0.001)
+        with mock.patch.object(media, "shrink_jpeg", side_effect=lambda b: b), \
+                mock.patch.object(http, "raw", return_value=b"\xff\xd8IMG") as req:
+            cf.scene("Over-the-shoulder: Emily and Margaret argue [set: Manor kitchen]",
+                     "Margaret", SERIES, set_ref=b"ROOM",
+                     people=[("Emily", b"F1"), ("Margaret", b"F2")])
+        body = req.call_args.args[3]
+        for i in range(3):
+            self.assertIn(f'name="input_image_{i}"'.encode(), body)
+        self.assertIn(b"image 0 is Emily", body)
+        self.assertIn(b"image 1 is Margaret", body)
+        self.assertIn(b"Image 2 shows the location", body)
+
     def test_scene_sends_portrait_and_set_as_two_references(self):
         cf = media.CloudflareImages("a", "t", "m", 0.001)
         with mock.patch.object(media, "shrink_jpeg", side_effect=lambda b: b), \
@@ -72,7 +86,7 @@ class BytesImages(media.FakeImages):
         self.made_sets.append(name)
         return super().set_reference(name, description, series)
 
-    def scene(self, visual, speaker, series, ref=None, set_ref=None):
+    def scene(self, visual, speaker, series, ref=None, set_ref=None, people=None):
         self.seen.append((media.split_set(visual)[1], set_ref is not None))
         return super().scene(visual, speaker, series)
 
