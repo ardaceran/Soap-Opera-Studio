@@ -100,11 +100,21 @@ class Db:
     def get_series(self, series_id: str) -> dict:
         rows = self._get(
             f"/series?id=eq.{series_id}"
-            "&select=id,title,genre,setting,season_plan,characters(name,role,description)"
+            "&select=id,title,genre,setting,season_plan,characters(id,name,role,description)"
         )
         if not rows:
             raise LookupError(f"series {series_id} not found")
         return rows[0]
+
+    def episode_scenes(self, series_id: str, number: int) -> list:
+        """The dialogue lines of one episode, in order (for story continuity)."""
+        rows = self._get(
+            f"/episodes?series_id=eq.{series_id}&number=eq.{number}"
+            "&select=scenes(idx,dialogue)"
+        )
+        scenes = (rows[0].get("scenes") or []) if rows else []
+        return [s["dialogue"] for s in sorted(scenes, key=lambda s: s["idx"])
+                if s.get("dialogue")]
 
     def save_season_plan(self, series_id: str, plan: dict):
         self._update("series", f"id=eq.{series_id}", {"season_plan": plan})

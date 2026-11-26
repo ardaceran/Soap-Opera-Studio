@@ -32,12 +32,17 @@ Setting: {series['setting']}
 Characters:
 {_cast(series)}
 
+Also fix how each character looks, so every picture of the season shows the same
+person: age, build, face, hair, and one outfit they keep wearing (one sentence each).
+
 Return JSON:
 {{"logline": "one sentence",
+  "looks": {{"<character name>": "how they look", ...}},
   "episodes": [{{"number": 1, "title": "...", "outline": "2-3 sentences"}}, ... 5 items]}}"""
 
 
-def episode_prompt(series: dict, number: int, previous: list, winner) -> str:
+def episode_prompt(series: dict, number: int, previous: list, winner,
+                   last_scenes=None) -> str:
     plan = series.get("season_plan") or {}
     outline = ""
     for ep in plan.get("episodes") or []:
@@ -48,6 +53,11 @@ def episode_prompt(series: dict, number: int, previous: list, winner) -> str:
         for p in previous
     ) or "- (this is the first episode)"
     vote = f"\nViewers voted: {winner}\nThis episode MUST follow that choice.\n" if winner else ""
+    last = ""
+    if last_scenes:
+        lines = "\n".join(f"  {i + 1}. {d}" for i, d in enumerate(last_scenes))
+        last = (f"\nThe previous episode, scene by scene (continue exactly from its "
+                f"last scene):\n{lines}\n")
     names = ", ".join(c["name"] for c in series.get("characters") or [])
     return f"""Write episode {number}.
 
@@ -59,7 +69,13 @@ Characters:
 
 Story so far:
 {story_so_far}
-{vote}
+{last}{vote}
+Continuity (very important):
+- This is the SAME story with the SAME people: never contradict earlier episodes.
+- Keep where each character is, what they know and what happened to them; a fact
+  revealed earlier stays true. Start where the previous episode ended.
+- Describe each character in "visual" with their fixed look from the cast list.
+
 Rules:
 - 12 to 15 scenes, about 60-90 seconds in total; one short spoken line per scene (max 25 words).
 - "speaker" is one of: {names}, Narrator.
@@ -76,8 +92,11 @@ def validate_plan(plan: dict) -> dict:
     eps = plan.get("episodes")
     if not isinstance(eps, list) or not eps:
         raise StoryError("season plan has no episodes")
+    looks = plan.get("looks") if isinstance(plan.get("looks"), dict) else {}
     return {
         "logline": str(plan.get("logline", ""))[:300],
+        "looks": {str(k)[:60]: " ".join(str(v).split())[:300]
+                  for k, v in looks.items() if str(v).strip()},
         "episodes": [
             {"number": int(e.get("number", i + 1)),
              "title": str(e.get("title", ""))[:120],

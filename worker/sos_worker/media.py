@@ -63,10 +63,20 @@ def character_prompt(c: dict, series: dict) -> str:
             f"Looking at the camera, neutral expression, plain background. {STYLE}")
 
 
+def cast_looks(text: str, speaker: str, series: dict) -> str:
+    """The fixed look of every character named in the scene, so the same person is drawn
+    the same way in every episode (also in narrator scenes, which have no portrait)."""
+    seen = f"{text} {speaker}".lower()
+    looks = [f"{c['name']}: {c['description']}" for c in series.get("characters") or []
+             if c.get("description") and c["name"].lower() in seen]
+    return (" Characters: " + "; ".join(looks) + ".") if looks else ""
+
+
 def scene_prompt(visual: str, speaker: str, series: dict, has_ref: bool) -> str:
     who = (f"Keep this person's face, hair and look exactly the same. Show {speaker} in this scene: "
            if has_ref else "")
-    return f"{who}{visual}. Setting: {series['setting']}. {STYLE}"
+    return (f"{who}{visual}.{cast_looks(visual, speaker, series)} "
+            f"Setting: {series['setting']}. {STYLE}")
 
 
 # ---------------------------------------------------------------- fal.ai
