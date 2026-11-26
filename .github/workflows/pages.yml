@@ -42,6 +42,18 @@ jobs:
           SB_KEY: ${{ inputs.supabase_key }}
         run: |
           defs=""
+          # A secret key must never reach the browser: stop the build if one was pasted.
+          case "$SB_KEY" in
+            sb_secret_*|*service_role*)
+              echo "::error::That is a SECRET key. Use the publishable key (sb_publishable_...). Rotate the secret key in Supabase now."
+              exit 1;;
+          esac
+          if [ -n "$SB_KEY" ]; then
+            role=$(echo "$SB_KEY" | cut -d. -f2 | base64 -d 2>/dev/null | grep -o '"role":"[a-z_]*"' || true)
+            if [ "$role" = '"role":"service_role"' ]; then
+              echo "::error::That is the service_role key. Use the publishable / anon key."; exit 1
+            fi
+          fi
           if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
             defs="--dart-define=SUPABASE_URL=$SB_URL --dart-define=SUPABASE_KEY=$SB_KEY"
             echo "Building against $SB_URL"
