@@ -162,7 +162,7 @@ class Db:
             "&select=id,series_id,number,title,"
             "scenes(id,idx,dialogue,visual_prompt),"
             "polls(poll_options!poll_options_poll_id_fkey(label)),"
-            "series(id,owner_id,title,genre,setting,"
+            "series(id,owner_id,title,genre,setting,season_plan,"
             "characters(id,name,role,description,voice_id,ref_image_paths))"
         )
         if not rows:

@@ -31,6 +31,43 @@ STYLE = ("cinematic still from a Turkish TV drama, dramatic soft lighting, "
          "shallow depth of field, photorealistic, vertical 9:16 frame, "
          "no text, no captions, no watermark")
 
+# Framing words for each shot type (story.SHOTS). Subjects sit off-centre on a third,
+# and the bottom of the frame stays calm for the captions.
+FRAMING = {
+    "establishing": "establishing shot of the location, no people, deep perspective",
+    "wide": "wide shot, people small in the frame and placed on the left or right third, "
+            "the place dominates",
+    "medium": "medium shot from the waist up, subject on the left or right third, "
+              "not centred, background visible",
+    "close-up": "close-up of the face, off-centre on a third, strong emotion, "
+                "soft background blur",
+    "over-the-shoulder": "over-the-shoulder shot, one person's shoulder blurred in the "
+                         "foreground, the other person facing camera on a third",
+    "detail": "extreme close-up of an object or of hands, no faces",
+    "silhouette": "silhouette against bright light, face not visible, strong shapes",
+}
+CAPTION_SPACE = "keep the bottom third of the frame calm and darker"
+
+
+def split_shot(visual: str):
+    """'Close-up: Elif crying' -> ('close-up', 'Elif crying'); no prefix -> (None, text)."""
+    head, sep, rest = (visual or "").partition(":")
+    key = head.strip().lower()
+    if sep and key in FRAMING:
+        return key, rest.strip()
+    return None, (visual or "").strip()
+
+
+def people_in(text: str, speaker: str, series: dict) -> list:
+    """Characters named in the scene description (the speaker counts when they are not
+    the narrator and the shot shows people)."""
+    low = (text or "").lower()
+    out = [c for c in series.get("characters") or [] if c["name"].lower() in low]
+    if not out and speaker and speaker != "Narrator":
+        out = [c for c in series.get("characters") or [] if c["name"] == speaker]
+    return out
+
+
 # ElevenLabs premade voices, handed out in order to characters without a voice_id.
 DEFAULT_VOICES = [
     "21m00Tcm4TlvDq8ikWAM",  # Rachel
@@ -63,20 +100,35 @@ def character_prompt(c: dict, series: dict) -> str:
             f"Looking at the camera, neutral expression, plain background. {STYLE}")
 
 
-def cast_looks(text: str, speaker: str, series: dict) -> str:
-    """The fixed look of every character named in the scene, so the same person is drawn
-    the same way in every episode (also in narrator scenes, which have no portrait)."""
-    seen = f"{text} {speaker}".lower()
-    looks = [f"{c['name']}: {c['description']}" for c in series.get("characters") or []
-             if c.get("description") and c["name"].lower() in seen]
-    return (" Characters: " + "; ".join(looks) + ".") if looks else ""
+def use_portrait(visual: str, speaker: str, series: dict) -> bool:
+    """The portrait helps keep a face, but an edit model copies it into the frame:
+    use it only when the speaker is the one person in a medium or close shot."""
+    shot, text = split_shot(visual)
+    shown = people_in(text, speaker, series)
+    return (shot in (None, "medium", "close-up") and len(shown) == 1
+            and shown[0]["name"] == speaker)
 
 
 def scene_prompt(visual: str, speaker: str, series: dict, has_ref: bool) -> str:
-    who = (f"Keep this person's face, hair and look exactly the same. Show {speaker} in this scene: "
-           if has_ref else "")
-    return (f"{who}{visual}.{cast_looks(visual, speaker, series)} "
-            f"Setting: {series['setting']}. {STYLE}")
+    shot, text = split_shot(visual)
+    no_people = shot in ("establishing", "detail")
+    people = [] if no_people else people_in(text, speaker, series)
+    if people:
+        def one(c):
+            return f"{c['name']} ({c['description']})" if c.get("description") else c["name"]
+        n = len(people)
+        who = (f"Exactly {n} {'person' if n == 1 else 'people'} in the frame: "
+               + "; ".join(one(c) for c in people) + ". Nobody else, no duplicates.")
+    else:
+        who = "No people in the frame, only the place, the weather and objects."
+    keep = ("Keep this person's face, hair and look exactly the same. " if has_ref else "")
+    framing = FRAMING.get(shot) or "subject on the left or right third, not centred"
+    plan = series.get("season_plan") or {}
+    look = plan.get("visual_style") if isinstance(plan, dict) else ""
+    return (f"{keep}{text}. {who} Framing: {framing}; {CAPTION_SPACE}. "
+            f"Setting: {series['setting']}."
+            + (f" Look of the series: {look}." if look else "")
+            + f" {STYLE}")
 
 
 # ---------------------------------------------------------------- fal.ai
