@@ -40,11 +40,15 @@ Also fix how each character looks, so every picture of the season shows the same
 person: age, build, face, hair, and one outfit they keep wearing (one sentence each).
 And fix one visual style for the whole season: colour palette, light, mood
 (one sentence, e.g. "cold blue-grey palette, stormy night light, wet reflections").
+And fix 2 to 4 recurring sets (the places where the scenes happen), each with a short
+name and one sentence that pins it down so every picture shows the same place:
+architecture, materials, colours, furniture, windows, light.
 
 Return JSON:
 {{"logline": "one sentence",
   "visual_style": "one sentence",
   "looks": {{"<character name>": "how they look", ...}},
+  "sets": {{"<short set name>": "fixed description of the place", ...}},
   "episodes": [{{"number": 1, "title": "...", "outline": "2-3 sentences"}}, ... 5 items]}}"""
 
 
@@ -66,6 +70,20 @@ def episode_prompt(series: dict, number: int, previous: list, winner,
         last = (f"\nThe previous episode, scene by scene (continue exactly from its "
                 f"last scene):\n{lines}\n")
     names = ", ".join(c["name"] for c in series.get("characters") or [])
+    sets = plan.get("sets") or {}
+    set_lines = "\n".join(f"- {k}: {v}" for k, v in sets.items())
+    sets_block = (f"\nSets (the only places scenes happen; each looks exactly as described):\n"
+                  f"{set_lines}\n") if sets else ""
+    set_rule = ('\n- "set" is one of: ' + ", ".join(sets) + '. Stay in one set for several '
+                'scenes in a row before moving; never invent other places.') if sets else ""
+    opening = ""
+    if number == 1:
+        opening = """
+Opening of the season (very important for episode 1):
+- Do not start with the conflict. The first 5 or 6 scenes (about 30-40 seconds) set up
+  the story calmly: who the lead character is, what happened that brings them here now,
+  how they arrive, the place, and how the characters are related.
+- Only after that does the conflict begin; build to the cliffhanger at the end."""
     return f"""Write episode {number}.
 
 Series: {series['title']} ({series['genre']}), set in {series['setting']}.
@@ -73,10 +91,10 @@ Season logline: {plan.get('logline', '')}
 Planned outline for this episode: {outline or '(free)'}
 Characters:
 {_cast(series)}
-
+{sets_block}
 Story so far:
 {story_so_far}
-{last}{vote}
+{last}{vote}{opening}
 Continuity (very important):
 - This is the SAME story with the SAME people: never contradict earlier episodes.
 - Keep where each character is, what they know and what happened to them; a fact
@@ -92,12 +110,12 @@ Rules:
   from the cast) and nobody else; where they are in the frame; place, light, mood.
   No text in the image.
 - Narrator scenes show the place, the weather or an object (establishing, wide,
-  detail or silhouette shots), not a character's face.
+  detail or silhouette shots), not a character's face.{set_rule}
 - End with a cliffhanger and give 3 short options for what happens next (viewers vote on them).
 
 Return JSON:
 {{"title": "...", "summary": "2 sentences for the series bible",
-  "scenes": [{{"speaker": "...", "line": "...", "shot": "...", "visual": "..."}}],
+  "scenes": [{{"speaker": "...", "line": "...", "shot": "...", "set": "...", "visual": "..."}}],
   "poll_options": ["...", "...", "..."]}}"""
 
 
@@ -106,11 +124,14 @@ def validate_plan(plan: dict) -> dict:
     if not isinstance(eps, list) or not eps:
         raise StoryError("season plan has no episodes")
     looks = plan.get("looks") if isinstance(plan.get("looks"), dict) else {}
+    sets = plan.get("sets") if isinstance(plan.get("sets"), dict) else {}
     return {
         "logline": str(plan.get("logline", ""))[:300],
         "visual_style": " ".join(str(plan.get("visual_style", "")).split())[:300],
         "looks": {str(k)[:60]: " ".join(str(v).split())[:300]
                   for k, v in looks.items() if str(v).strip()},
+        "sets": {" ".join(str(k).split())[:40]: " ".join(str(v).split())[:300]
+                 for k, v in list(sets.items())[:5] if str(k).strip() and str(v).strip()},
         "episodes": [
             {"number": int(e.get("number", i + 1)),
              "title": str(e.get("title", ""))[:120],
@@ -120,8 +141,9 @@ def validate_plan(plan: dict) -> dict:
     }
 
 
-def validate_episode(ep: dict, character_names: list) -> dict:
+def validate_episode(ep: dict, character_names: list, set_names=None) -> dict:
     """Clean the model output into what the database function expects."""
+    sets = {n.lower(): n for n in (set_names or [])}
     allowed = {n.lower(): n for n in character_names}
     allowed["narrator"] = "Narrator"
     scenes = []
@@ -134,10 +156,13 @@ def validate_episode(ep: dict, character_names: list) -> dict:
         if shot not in SHOTS:
             shot = "establishing" if speaker == "Narrator" else "medium"
         visual = " ".join(str(s.get("visual", "")).split())[:400]
+        # The set travels at the end of the visual text ("... [set: Kitchen]").
+        name = sets.get(" ".join(str(s.get("set", "")).split()).lower())
+        tag = f" [set: {name}]" if name else ""
         scenes.append({
             "dialogue": f"{speaker}: {line}",
             # The shot travels inside the visual text ("Close-up: ..."): no schema change.
-            "visual": f"{shot.capitalize()}: {visual}",
+            "visual": f"{shot.capitalize()}: {visual}{tag}",
         })
     if len(scenes) < MIN_SCENES:
         raise StoryError(f"only {len(scenes)} usable scenes (need {MIN_SCENES})")
