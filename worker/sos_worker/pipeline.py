@@ -139,13 +139,22 @@ class Pipeline:
             for s in scenes:
                 speaker, line = split_dialogue(s.get("dialogue") or "")
                 c = chars.get(speaker)
+                visual = s.get("visual_prompt") or ""
                 ref = (self._portrait_ref(c, portraits)
-                       if c and media.use_portrait(s.get("visual_prompt") or "", speaker, series)
+                       if c and media.use_portrait(visual, speaker, series)
                        else None)
-                set_ref, usd = self._set_ref(series, s.get("visual_prompt") or "", set_pics)
+                set_ref, usd = self._set_ref(series, visual, set_pics)
                 cost += usd
+                extra = {"set_ref": set_ref} if set_ref else {}
+                if getattr(self.images, "ref_kind", None) == "bytes":
+                    # Multi-reference model: every visible character keeps their face,
+                    # not only a speaker alone in a close shot.
+                    shown = media.visible_people(visual, speaker, series)
+                    people = [(p["name"], self._portrait_ref(chars[p["name"]], portraits))
+                              for p in shown if p["name"] in chars][:3]
+                    if people:
+                        extra["people"] = people
                 try:
-                    extra = {"set_ref": set_ref} if set_ref else {}
                     img, usd = self.images.scene(s.get("visual_prompt") or line, speaker,
                                                  series, ref, **extra)
                 except media.ContentFlagged:

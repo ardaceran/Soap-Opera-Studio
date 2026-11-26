@@ -258,8 +258,9 @@ class BytesFake(media.FakeImages):
     """Like Cloudflare: wants the portrait itself, not a link."""
     ref_kind = "bytes"
 
-    def scene(self, v, sp, s, ref=None):
+    def scene(self, v, sp, s, ref=None, set_ref=None, people=None):
         self.refs = getattr(self, "refs", []) + [(sp, ref)]
+        self.people = getattr(self, "people", []) + [people]
         return super().scene(v, sp, s)
 
 
